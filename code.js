@@ -1228,6 +1228,9 @@ function cargarHorasTrabajarDesdeExcel(payload) {
     const targetHeader = sheetHoras.getRange(1, 1, 1, sheetHoras.getLastColumn()).getValues()[0];
     const sourceHeader = data[0];
     const mapping = _buildHorasTrabajarHeaderMapping(sourceHeader, targetHeader);
+    if (!mapping.targetLength) {
+      throw new Error('No se pudo determinar la estructura de la hoja destino.');
+    }
 
     const rowsToInsert = [];
     for (let i = 1; i < data.length; i++) {
@@ -1246,7 +1249,12 @@ function cargarHorasTrabajarDesdeExcel(payload) {
     const lock = LockService.getScriptLock();
     lock.waitLock(20000);
     try {
-      const startRow = sheetHoras.getLastRow() + 1;
+      const startRow = getFirstFreeRow(sheetHoras);
+      const requiredRows = startRow + rowsToInsert.length - 1;
+      if (requiredRows > sheetHoras.getMaxRows()) {
+        const rowsToAdd = requiredRows - sheetHoras.getMaxRows();
+        sheetHoras.insertRowsAfter(sheetHoras.getMaxRows(), rowsToAdd);
+      }
       sheetHoras
         .getRange(startRow, 1, rowsToInsert.length, mapping.targetLength)
         .setValues(rowsToInsert);
