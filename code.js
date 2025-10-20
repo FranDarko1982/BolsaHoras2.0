@@ -1177,8 +1177,24 @@ function _formatMonthLabel(date) {
 }
 
 function cargarHorasTrabajarDesdeExcel(payload) {
+  return _cargarHorasDesdeExcel(payload, {
+    sheet: sheetHoras,
+    sheetName: SHEET_HORAS,
+    requireAdmin: true
+  });
+}
+
+function cargarHorasLibrarDesdeExcel(payload) {
+  return _cargarHorasDesdeExcel(payload, {
+    sheet: sheetHorasLibrar,
+    sheetName: SHEET_HORAS_LIBRAR,
+    requireAdmin: true
+  });
+}
+
+function _cargarHorasDesdeExcel(payload, { sheet, sheetName, requireAdmin = true }) {
   const context = getUserContext();
-  if (!context || !context.isAdmin) {
+  if (requireAdmin && (!context || !context.isAdmin)) {
     throw new Error('Solo los administradores pueden cargar horas.');
   }
 
@@ -1200,7 +1216,7 @@ function cargarHorasTrabajarDesdeExcel(payload) {
     }
 
     const copy = Drive.Files.copy(
-      { title: `tmp-horas-trabajar-${Date.now()}`, mimeType: MimeType.GOOGLE_SHEETS },
+      { title: `tmp-horas-${Date.now()}`, mimeType: MimeType.GOOGLE_SHEETS },
       tempFile.getId(),
       { convert: true }
     );
@@ -1221,13 +1237,14 @@ function cargarHorasTrabajarDesdeExcel(payload) {
       return { importedRows: 0, message: 'El archivo no contiene registros para importar.' };
     }
 
-    if (!sheetHoras) {
-      throw new Error("No se ha encontrado la hoja 'Horas trabajar'.");
+    const targetSheet = sheet;
+    if (!targetSheet) {
+      throw new Error(`No se ha encontrado la hoja '${sheetName || 'destino'}'.`);
     }
 
-    const targetHeader = sheetHoras.getRange(1, 1, 1, sheetHoras.getLastColumn()).getValues()[0];
+    const targetHeader = targetSheet.getRange(1, 1, 1, targetSheet.getLastColumn()).getValues()[0];
     const sourceHeader = data[0];
-    const mapping = _buildHorasTrabajarHeaderMapping(sourceHeader, targetHeader);
+    const mapping = _buildHorasSheetHeaderMapping(sourceHeader, targetHeader);
     if (!mapping.targetLength) {
       throw new Error('No se pudo determinar la estructura de la hoja destino.');
     }
@@ -1236,7 +1253,7 @@ function cargarHorasTrabajarDesdeExcel(payload) {
     for (let i = 1; i < data.length; i++) {
       const sourceRow = data[i];
       if (_isRowCompletelyEmpty(sourceRow)) continue;
-      const transformed = _transformHorasTrabajarRow(sourceRow, mapping);
+      const transformed = _transformHorasSheetRow(sourceRow, mapping);
       if (transformed) {
         rowsToInsert.push(transformed);
       }
@@ -1249,13 +1266,13 @@ function cargarHorasTrabajarDesdeExcel(payload) {
     const lock = LockService.getScriptLock();
     lock.waitLock(20000);
     try {
-      const startRow = getFirstFreeRow(sheetHoras);
+      const startRow = getFirstFreeRow(targetSheet);
       const requiredRows = startRow + rowsToInsert.length - 1;
-      if (requiredRows > sheetHoras.getMaxRows()) {
-        const rowsToAdd = requiredRows - sheetHoras.getMaxRows();
-        sheetHoras.insertRowsAfter(sheetHoras.getMaxRows(), rowsToAdd);
+      if (requiredRows > targetSheet.getMaxRows()) {
+        const rowsToAdd = requiredRows - targetSheet.getMaxRows();
+        targetSheet.insertRowsAfter(targetSheet.getMaxRows(), rowsToAdd);
       }
-      sheetHoras
+      targetSheet
         .getRange(startRow, 1, rowsToInsert.length, mapping.targetLength)
         .setValues(rowsToInsert);
     } finally {
@@ -1283,7 +1300,7 @@ function cargarHorasTrabajarDesdeExcel(payload) {
   }
 }
 
-function _buildHorasTrabajarHeaderMapping(sourceHeader, targetHeader) {
+function _buildHorasSheetHeaderMapping(sourceHeader, targetHeader) {
   const sourceMap = {};
   const mapping = [];
 
@@ -1320,7 +1337,7 @@ function _buildHorasTrabajarHeaderMapping(sourceHeader, targetHeader) {
   };
 }
 
-function _transformHorasTrabajarRow(sourceRow, mappingInfo) {
+function _transformHorasSheetRow(sourceRow, mappingInfo) {
   if (!mappingInfo || !mappingInfo.mapping) return null;
   const { mapping, horasSourceIndex, targetLength } = mappingInfo;
   const result = new Array(targetLength).fill('');

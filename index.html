@@ -208,6 +208,7 @@
               <div class="control-panel-actions">
                 <button type="button" class="control-panel-btn control-panel-btn--trabajar">Cargar horas trabajar</button>
                 <input type="file" id="uploadHorasTrabajarInput" accept=".xlsx,.xls,.csv" hidden>
+                <input type="file" id="uploadHorasLibrarInput" accept=".xlsx,.xls,.csv" hidden>
                 <button type="button" class="control-panel-btn control-panel-btn--librar">Cargar horas librar</button>
               </div>
             </div>
@@ -464,26 +465,24 @@
         };
         const fallbackMisSolicitudesData = [];
 
-        const horasTrabajarUpload = {
-          button: document.querySelector('.control-panel-btn--trabajar'),
-          input: document.getElementById('uploadHorasTrabajarInput'),
-          uploading: false,
-          originalText: ''
-        };
+        const horasUploadConfigs = [
+          {
+            button: document.querySelector('.control-panel-btn--trabajar'),
+            input: document.getElementById('uploadHorasTrabajarInput'),
+            serverFunction: 'cargarHorasTrabajarDesdeExcel',
+            processingLabel: 'Importando...'
+          },
+          {
+            button: document.querySelector('.control-panel-btn--librar'),
+            input: document.getElementById('uploadHorasLibrarInput'),
+            serverFunction: 'cargarHorasLibrarDesdeExcel',
+            processingLabel: 'Importando...'
+          }
+        ];
 
-        if (horasTrabajarUpload.button && horasTrabajarUpload.input) {
-          horasTrabajarUpload.originalText = horasTrabajarUpload.button.textContent;
-          horasTrabajarUpload.button.addEventListener('click', () => {
-            if (horasTrabajarUpload.uploading) return;
-            horasTrabajarUpload.input.click();
-          });
-
-          horasTrabajarUpload.input.addEventListener('change', (event) => {
-            const file = event.target.files && event.target.files[0];
-            if (!file) return;
-            startHorasTrabajarUpload(file);
-          });
-        }
+        const horasUploads = horasUploadConfigs
+          .map(setupHorasUpload)
+          .filter(Boolean);
 
         const editModal = {
           overlay: document.getElementById('editSolicitudOverlay'),
@@ -586,54 +585,82 @@
         let accessContext = { role: 'user', isAdmin: false, email: '' };
         const DEFAULT_ACCESS_CONTEXT = { role: 'user', isAdmin: false, email: '' };
 
-        function startHorasTrabajarUpload(file) {
-          if (!file) return;
+        function setupHorasUpload(config) {
+          if (!config || !config.button || !config.input || !config.serverFunction) {
+            return null;
+          }
+
+          const state = {
+            button: config.button,
+            input: config.input,
+            serverFunction: config.serverFunction,
+            processingLabel: config.processingLabel || 'Procesando...',
+            originalText: config.button.textContent,
+            uploading: false
+          };
+
+          state.button.addEventListener('click', () => {
+            if (state.uploading) return;
+            state.input.click();
+          });
+
+          state.input.addEventListener('change', (event) => {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            startHorasUpload(state, file);
+          });
+
+          return state;
+        }
+
+        function startHorasUpload(state, file) {
+          if (!state || !file) return;
 
           const allowedExtensions = /\.(xlsx|xls|csv)$/i;
           if (!allowedExtensions.test(file.name || '')) {
             alert('Formato de archivo no soportado. Usa un Excel o CSV.');
-            resetHorasTrabajarInput();
+            resetHorasUploadInput(state);
             return;
           }
 
           if (typeof FileReader === 'undefined') {
             alert('El navegador no soporta la lectura de archivos.');
-            resetHorasTrabajarInput();
+            resetHorasUploadInput(state);
             return;
           }
 
-          setHorasTrabajarUploadState(true, 'Importando...');
+          setHorasUploadState(state, true, state.processingLabel);
           const reader = new FileReader();
 
           reader.onload = (event) => {
             const result = event && event.target ? event.target.result : null;
             if (!result || typeof result !== 'string') {
-              setHorasTrabajarUploadState(false);
+              setHorasUploadState(state, false);
               alert('No se pudo leer el archivo seleccionado.');
-              resetHorasTrabajarInput();
+              resetHorasUploadInput(state);
               return;
             }
 
             const base64Index = result.indexOf('base64,');
             const base64Data = base64Index >= 0 ? result.substring(base64Index + 7) : '';
             if (!base64Data) {
-              setHorasTrabajarUploadState(false);
+              setHorasUploadState(state, false);
               alert('No se pudo procesar el archivo seleccionado.');
-              resetHorasTrabajarInput();
+              resetHorasUploadInput(state);
               return;
             }
 
             if (typeof google === 'undefined' || !google.script || !google.script.run) {
-              setHorasTrabajarUploadState(false);
+              setHorasUploadState(state, false);
               alert('Esta acción solo está disponible desde la aplicación publicada.');
-              resetHorasTrabajarInput();
+              resetHorasUploadInput(state);
               return;
             }
 
-            google.script.run
+            const uploadCall = google.script.run
               .withSuccessHandler((response) => {
-                setHorasTrabajarUploadState(false);
-                resetHorasTrabajarInput();
+                setHorasUploadState(state, false);
+                resetHorasUploadInput(state);
                 if (response && typeof response === 'object') {
                   const rows = typeof response.importedRows === 'number' ? response.importedRows : null;
                   const msg = response.message || (rows != null
@@ -645,42 +672,49 @@
                 }
               })
               .withFailureHandler((error) => {
-                setHorasTrabajarUploadState(false);
-                resetHorasTrabajarInput();
+                setHorasUploadState(state, false);
+                resetHorasUploadInput(state);
                 const message = error && error.message ? error.message : String(error || 'Error desconocido');
                 alert(`Error al cargar el archivo: ${message}`);
-              })
-              .cargarHorasTrabajarDesdeExcel({
+              });
+
+            if (typeof uploadCall[state.serverFunction] === 'function') {
+              uploadCall[state.serverFunction]({
                 fileName: file.name,
                 mimeType: file.type || '',
                 base64: base64Data
               });
+            } else {
+              setHorasUploadState(state, false);
+              resetHorasUploadInput(state);
+              alert('No se encontró la acción remota para la importación.');
+            }
           };
 
           reader.onerror = () => {
-            setHorasTrabajarUploadState(false);
+            setHorasUploadState(state, false);
             alert('No se pudo leer el archivo seleccionado.');
-            resetHorasTrabajarInput();
+            resetHorasUploadInput(state);
           };
 
           reader.readAsDataURL(file);
         }
 
-        function setHorasTrabajarUploadState(isUploading, label) {
-          if (!horasTrabajarUpload.button) return;
-          horasTrabajarUpload.uploading = isUploading;
+        function setHorasUploadState(state, isUploading, label) {
+          if (!state || !state.button) return;
+          state.uploading = isUploading;
           if (isUploading) {
-            horasTrabajarUpload.button.disabled = true;
-            horasTrabajarUpload.button.textContent = label || 'Procesando...';
+            state.button.disabled = true;
+            state.button.textContent = label || 'Procesando...';
           } else {
-            horasTrabajarUpload.button.disabled = false;
-            horasTrabajarUpload.button.textContent = horasTrabajarUpload.originalText || 'Cargar horas trabajar';
+            state.button.disabled = false;
+            state.button.textContent = state.originalText || state.button.textContent;
           }
         }
 
-        function resetHorasTrabajarInput() {
-          if (horasTrabajarUpload.input) {
-            horasTrabajarUpload.input.value = '';
+        function resetHorasUploadInput(state) {
+          if (state && state.input) {
+            state.input.value = '';
           }
         }
 
