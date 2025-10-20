@@ -122,6 +122,25 @@
         color: var(--color-primary-strong);
       }
 
+      .sidebar-item--panel {
+        color: #7a53d7;
+      }
+
+      .sidebar-item--panel .sidebar-icon {
+        color: currentColor;
+      }
+
+      .sidebar-item--panel:hover {
+        background: #fff;
+        box-shadow: 0 14px 25px rgba(122, 83, 215, 0.18);
+      }
+
+      .sidebar-item--panel.active {
+        background: linear-gradient(135deg, rgba(122, 83, 215, 0.2), rgba(122, 83, 215, 0.12));
+        box-shadow: 0 18px 32px rgba(122, 83, 215, 0.24);
+        color: #5f39b8;
+      }
+
       .sidebar-icon--trabajar {
         color: currentColor;
       }
@@ -406,6 +425,77 @@
       .panel-body {
         padding: 0 28px 28px;
         flex: 1;
+      }
+
+      .control-panel {
+        width: min(520px, 100%);
+        margin: 0 auto;
+        background: #fff;
+        border-radius: 28px;
+        padding: 44px 46px;
+        box-shadow: 0 22px 44px rgba(188, 52, 139, 0.16);
+        border: 1px solid rgba(188, 52, 139, 0.14);
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+
+      .control-panel-header {
+        text-align: center;
+      }
+
+      .control-panel-header h2 {
+        margin: 0 0 10px;
+        font-size: 1.9rem;
+        font-family: 'Montserrat', sans-serif;
+        color: var(--color-primary-strong);
+      }
+
+      .control-panel-header p {
+        margin: 0;
+        font-size: 1rem;
+        color: var(--color-text-soft);
+      }
+
+      .control-panel-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .control-panel-btn {
+        border: none;
+        border-radius: 28px;
+        padding: 16px 22px;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #fff;
+        cursor: pointer;
+        letter-spacing: 0.01em;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 18px 32px rgba(188, 52, 139, 0.2);
+      }
+
+      .control-panel-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 22px 38px rgba(188, 52, 139, 0.26);
+      }
+
+      .control-panel-btn:active {
+        transform: translateY(0);
+      }
+
+      .control-panel-btn--trabajar {
+        background: linear-gradient(135deg, #f7a248, #e66a2d);
+        box-shadow: 0 18px 32px rgba(230, 106, 45, 0.24);
+      }
+
+      .control-panel-btn--librar {
+        background: linear-gradient(135deg, #f283be, #bc348b);
+        box-shadow: 0 18px 32px rgba(188, 52, 139, 0.24);
       }
 
       .table-wrapper {
@@ -877,6 +967,13 @@
         }
         .panel-body {
           padding: 0 22px 22px;
+        }
+        .control-panel {
+          padding: 32px 28px;
+        }
+        .control-panel-btn {
+          font-size: 0.95rem;
+          padding: 14px 18px;
         }
       }
 
