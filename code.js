@@ -1176,6 +1176,308 @@ function _formatMonthLabel(date) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+function cargarHorasTrabajarDesdeExcel(payload) {
+  const context = getUserContext();
+  if (!context || !context.isAdmin) {
+    throw new Error('Solo los administradores pueden cargar horas.');
+  }
+
+  if (!payload || !payload.base64) {
+    throw new Error('No se ha recibido ningún archivo para procesar.');
+  }
+
+  const fileName = payload.fileName || 'import.xlsx';
+  const mimeType = _resolveImportMimeType(fileName, payload.mimeType);
+  const blob = Utilities.newBlob(Utilities.base64Decode(payload.base64), mimeType, fileName);
+
+  let tempFile = null;
+  let convertedFileId = null;
+
+  try {
+    tempFile = DriveApp.createFile(blob);
+    if (!tempFile) {
+      throw new Error('No se pudo crear el archivo temporal en Drive.');
+    }
+
+    const copy = Drive.Files.copy(
+      { title: `tmp-horas-trabajar-${Date.now()}`, mimeType: MimeType.GOOGLE_SHEETS },
+      tempFile.getId(),
+      { convert: true }
+    );
+
+    if (!copy || !copy.id) {
+      throw new Error('No se pudo convertir el archivo a hoja de cálculo.');
+    }
+
+    convertedFileId = copy.id;
+    const tempSpreadsheet = SpreadsheetApp.openById(convertedFileId);
+    const sourceSheet = tempSpreadsheet.getSheets()[0];
+    if (!sourceSheet) {
+      throw new Error('El archivo no contiene hojas para procesar.');
+    }
+
+    const data = sourceSheet.getDataRange().getValues();
+    if (!data || data.length < 2) {
+      return { importedRows: 0, message: 'El archivo no contiene registros para importar.' };
+    }
+
+    if (!sheetHoras) {
+      throw new Error("No se ha encontrado la hoja 'Horas trabajar'.");
+    }
+
+    const targetHeader = sheetHoras.getRange(1, 1, 1, sheetHoras.getLastColumn()).getValues()[0];
+    const sourceHeader = data[0];
+    const mapping = _buildHorasTrabajarHeaderMapping(sourceHeader, targetHeader);
+
+    const rowsToInsert = [];
+    for (let i = 1; i < data.length; i++) {
+      const sourceRow = data[i];
+      if (_isRowCompletelyEmpty(sourceRow)) continue;
+      const transformed = _transformHorasTrabajarRow(sourceRow, mapping);
+      if (transformed) {
+        rowsToInsert.push(transformed);
+      }
+    }
+
+    if (!rowsToInsert.length) {
+      return { importedRows: 0, message: 'No se encontraron registros válidos en el archivo.' };
+    }
+
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      const startRow = sheetHoras.getLastRow() + 1;
+      sheetHoras
+        .getRange(startRow, 1, rowsToInsert.length, mapping.targetLength)
+        .setValues(rowsToInsert);
+    } finally {
+      lock.releaseLock();
+    }
+
+    return {
+      importedRows: rowsToInsert.length,
+      message: `Archivo procesado correctamente. Se importaron ${rowsToInsert.length} registros.`
+    };
+  } catch (error) {
+    const message = error && error.message ? error.message : 'Error desconocido al importar las horas.';
+    throw new Error(message);
+  } finally {
+    if (tempFile) {
+      try {
+        tempFile.setTrashed(true);
+      } catch (err) {}
+    }
+    if (convertedFileId) {
+      try {
+        DriveApp.getFileById(convertedFileId).setTrashed(true);
+      } catch (err) {}
+    }
+  }
+}
+
+function _buildHorasTrabajarHeaderMapping(sourceHeader, targetHeader) {
+  const sourceMap = {};
+  const mapping = [];
+
+  (sourceHeader || []).forEach((value, index) => {
+    const key = _normalizeHeaderName(value);
+    if (key && !(key in sourceMap)) {
+      sourceMap[key] = index;
+    }
+  });
+
+  (targetHeader || []).forEach((value, index) => {
+    const key = _normalizeHeaderName(value);
+    mapping.push({
+      targetIndex: index,
+      targetName: key,
+      sourceIndex: Object.prototype.hasOwnProperty.call(sourceMap, key)
+        ? sourceMap[key]
+        : null
+    });
+  });
+
+  const horasSourceIndex = _getFirstMatchingIndex(sourceMap, [
+    'horas',
+    'totalhoras',
+    'horastrabajar',
+    'cantidadhoras'
+  ]);
+
+  return {
+    mapping,
+    sourceMap,
+    horasSourceIndex,
+    targetLength: (targetHeader && targetHeader.length) || 0
+  };
+}
+
+function _transformHorasTrabajarRow(sourceRow, mappingInfo) {
+  if (!mappingInfo || !mappingInfo.mapping) return null;
+  const { mapping, horasSourceIndex, targetLength } = mappingInfo;
+  const result = new Array(targetLength).fill('');
+  let hasValue = false;
+
+  mapping.forEach(entry => {
+    const { targetIndex, targetName, sourceIndex } = entry;
+    if (targetIndex == null || targetIndex < 0 || targetIndex >= targetLength) return;
+
+    let value = sourceIndex != null ? sourceRow[sourceIndex] : '';
+
+    if (
+      (targetName === 'disponible' ||
+        targetName === 'disponibles' ||
+        targetName === 'disponibilidad' ||
+        targetName === 'dispon') &&
+      sourceIndex == null &&
+      horasSourceIndex != null
+    ) {
+      value = sourceRow[horasSourceIndex];
+    }
+
+    switch (targetName) {
+      case 'campana':
+        value = value != null ? String(value).trim() : '';
+        break;
+      case 'fecha':
+        value = _parseImportDate(value);
+        break;
+      case 'franja':
+        value = _parseFranjaValue(value);
+        break;
+      case 'horas':
+      case 'totalhoras':
+      case 'horastrabajar':
+      case 'cantidadhoras':
+        value = _parseNumericValue(value);
+        break;
+      case 'disponible':
+      case 'disponibles':
+      case 'disponibilidad':
+      case 'dispon':
+        value = _parseNumericValue(value);
+        break;
+      default:
+        if (value instanceof Date) {
+          value = _normalizeDate(value);
+        } else if (typeof value === 'string') {
+          value = value.trim();
+        } else if (value == null) {
+          value = '';
+        }
+        break;
+    }
+
+    if (value !== '' && value != null) {
+      hasValue = true;
+    }
+
+    result[targetIndex] = value == null ? '' : value;
+  });
+
+  return hasValue ? result : null;
+}
+
+function _parseImportDate(value) {
+  if (value instanceof Date) {
+    return _normalizeDate(value);
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const millis = Math.round((value - 25569) * 86400000);
+    return _normalizeDate(new Date(millis));
+  }
+
+  const str = String(value || '').trim();
+  if (!str) return '';
+
+  const iso = str.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+  if (iso) {
+    const year = Number(iso[1]);
+    const month = Number(iso[2]);
+    const day = Number(iso[3]);
+    return _normalizeDate(new Date(year, month - 1, day));
+  }
+
+  const euro = str.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+  if (euro) {
+    const day = Number(euro[1]);
+    const month = Number(euro[2]);
+    let year = Number(euro[3]);
+    if (year < 100) {
+      year += year >= 50 ? 1900 : 2000;
+    }
+    return _normalizeDate(new Date(year, month - 1, day));
+  }
+
+  const parsed = Date.parse(str);
+  if (!isNaN(parsed)) {
+    return _normalizeDate(new Date(parsed));
+  }
+
+  return '';
+}
+
+function _parseNumericValue(value) {
+  if (value == null || value === '') return '';
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  const str = String(value).trim().replace(',', '.');
+  if (!str) return '';
+  const num = parseFloat(str);
+  return Number.isFinite(num) ? num : '';
+}
+
+function _parseFranjaValue(value) {
+  if (value == null || value === '') return '';
+  const str = String(value).trim();
+  const normalized = _normalizarFranja(str);
+  return normalized || str;
+}
+
+function _resolveImportMimeType(fileName, providedMime) {
+  if (providedMime) return providedMime;
+  const extension = String(fileName || '')
+    .split('.')
+    .pop()
+    .toLowerCase();
+  switch (extension) {
+    case 'csv':
+      return 'text/csv';
+    case 'xls':
+      return MimeType.MICROSOFT_EXCEL;
+    case 'xlsx':
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+function _normalizeHeaderName(value) {
+  if (value == null) return '';
+  return String(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function _getFirstMatchingIndex(map, keys) {
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (Object.prototype.hasOwnProperty.call(map, key)) {
+      return map[key];
+    }
+  }
+  return null;
+}
+
+function _isRowCompletelyEmpty(row) {
+  if (!row || !row.length) return true;
+  return row.every(cell => cell === '' || cell == null || (typeof cell === 'string' && cell.trim() === ''));
+}
+
 function _obtenerNombreUsuario() {
   try {
     const email = (Session.getActiveUser().getEmail() || '').trim();

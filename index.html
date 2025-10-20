@@ -207,6 +207,7 @@
               </header>
               <div class="control-panel-actions">
                 <button type="button" class="control-panel-btn control-panel-btn--trabajar">Cargar horas trabajar</button>
+                <input type="file" id="uploadHorasTrabajarInput" accept=".xlsx,.xls,.csv" hidden>
                 <button type="button" class="control-panel-btn control-panel-btn--librar">Cargar horas librar</button>
               </div>
             </div>
@@ -463,6 +464,27 @@
         };
         const fallbackMisSolicitudesData = [];
 
+        const horasTrabajarUpload = {
+          button: document.querySelector('.control-panel-btn--trabajar'),
+          input: document.getElementById('uploadHorasTrabajarInput'),
+          uploading: false,
+          originalText: ''
+        };
+
+        if (horasTrabajarUpload.button && horasTrabajarUpload.input) {
+          horasTrabajarUpload.originalText = horasTrabajarUpload.button.textContent;
+          horasTrabajarUpload.button.addEventListener('click', () => {
+            if (horasTrabajarUpload.uploading) return;
+            horasTrabajarUpload.input.click();
+          });
+
+          horasTrabajarUpload.input.addEventListener('change', (event) => {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            startHorasTrabajarUpload(file);
+          });
+        }
+
         const editModal = {
           overlay: document.getElementById('editSolicitudOverlay'),
           modal: document.getElementById('editSolicitudModal'),
@@ -563,6 +585,104 @@
         let solicitudesChartInstance = null;
         let accessContext = { role: 'user', isAdmin: false, email: '' };
         const DEFAULT_ACCESS_CONTEXT = { role: 'user', isAdmin: false, email: '' };
+
+        function startHorasTrabajarUpload(file) {
+          if (!file) return;
+
+          const allowedExtensions = /\.(xlsx|xls|csv)$/i;
+          if (!allowedExtensions.test(file.name || '')) {
+            alert('Formato de archivo no soportado. Usa un Excel o CSV.');
+            resetHorasTrabajarInput();
+            return;
+          }
+
+          if (typeof FileReader === 'undefined') {
+            alert('El navegador no soporta la lectura de archivos.');
+            resetHorasTrabajarInput();
+            return;
+          }
+
+          setHorasTrabajarUploadState(true, 'Importando...');
+          const reader = new FileReader();
+
+          reader.onload = (event) => {
+            const result = event && event.target ? event.target.result : null;
+            if (!result || typeof result !== 'string') {
+              setHorasTrabajarUploadState(false);
+              alert('No se pudo leer el archivo seleccionado.');
+              resetHorasTrabajarInput();
+              return;
+            }
+
+            const base64Index = result.indexOf('base64,');
+            const base64Data = base64Index >= 0 ? result.substring(base64Index + 7) : '';
+            if (!base64Data) {
+              setHorasTrabajarUploadState(false);
+              alert('No se pudo procesar el archivo seleccionado.');
+              resetHorasTrabajarInput();
+              return;
+            }
+
+            if (typeof google === 'undefined' || !google.script || !google.script.run) {
+              setHorasTrabajarUploadState(false);
+              alert('Esta acción solo está disponible desde la aplicación publicada.');
+              resetHorasTrabajarInput();
+              return;
+            }
+
+            google.script.run
+              .withSuccessHandler((response) => {
+                setHorasTrabajarUploadState(false);
+                resetHorasTrabajarInput();
+                if (response && typeof response === 'object') {
+                  const rows = typeof response.importedRows === 'number' ? response.importedRows : null;
+                  const msg = response.message || (rows != null
+                    ? `Archivo procesado. Registros importados: ${rows}.`
+                    : 'Archivo procesado correctamente.');
+                  alert(msg);
+                } else {
+                  alert('Archivo procesado correctamente.');
+                }
+              })
+              .withFailureHandler((error) => {
+                setHorasTrabajarUploadState(false);
+                resetHorasTrabajarInput();
+                const message = error && error.message ? error.message : String(error || 'Error desconocido');
+                alert(`Error al cargar el archivo: ${message}`);
+              })
+              .cargarHorasTrabajarDesdeExcel({
+                fileName: file.name,
+                mimeType: file.type || '',
+                base64: base64Data
+              });
+          };
+
+          reader.onerror = () => {
+            setHorasTrabajarUploadState(false);
+            alert('No se pudo leer el archivo seleccionado.');
+            resetHorasTrabajarInput();
+          };
+
+          reader.readAsDataURL(file);
+        }
+
+        function setHorasTrabajarUploadState(isUploading, label) {
+          if (!horasTrabajarUpload.button) return;
+          horasTrabajarUpload.uploading = isUploading;
+          if (isUploading) {
+            horasTrabajarUpload.button.disabled = true;
+            horasTrabajarUpload.button.textContent = label || 'Procesando...';
+          } else {
+            horasTrabajarUpload.button.disabled = false;
+            horasTrabajarUpload.button.textContent = horasTrabajarUpload.originalText || 'Cargar horas trabajar';
+          }
+        }
+
+        function resetHorasTrabajarInput() {
+          if (horasTrabajarUpload.input) {
+            horasTrabajarUpload.input.value = '';
+          }
+        }
 
         function canAccessSection(target) {
           return target !== 'reportes' || accessContext.isAdmin;
