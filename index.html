@@ -1,0 +1,2483 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <title>Bolsa de horas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <?!= HtmlService.createHtmlOutputFromFile('styles').getContent(); ?>
+  </head>
+  <body class="app-body">
+    <div class="app-layout">
+      <aside class="app-sidebar">
+        <div class="sidebar-brand">
+          <span class="sidebar-logo-text">in</span>
+        </div>
+        <nav class="sidebar-nav">
+          <button class="sidebar-item active" data-target="inicio">
+            <span class="sidebar-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9.5 12 3l9 6.5" />
+                <path d="M5 10v10h14V10" />
+                <path d="M9 21V13h6v8" />
+              </svg>
+            </span>
+            <span class="sidebar-label">Inicio</span>
+          </button>
+          <button id="navTrabajar" class="sidebar-item sidebar-item--trabajar" data-target="calendario" data-calendar-mode="trabajar">
+            <span class="sidebar-icon sidebar-icon--trabajar" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="16" rx="2" />
+                <path d="M16 3v4" />
+                <path d="M8 3v4" />
+                <path d="M3 11h18" />
+                <path d="M8 15h.01" />
+                <path d="M12 15h.01" />
+                <path d="M16 15h.01" />
+              </svg>
+            </span>
+            <span class="sidebar-label">Trabajar</span>
+          </button>
+          <button id="navLibrar" class="sidebar-item sidebar-item--librar" data-target="calendario" data-calendar-mode="librar">
+            <span class="sidebar-icon sidebar-icon--librar" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="16" rx="2" />
+                <path d="M16 3v4" />
+                <path d="M8 3v4" />
+                <path d="M3 11h18" />
+                <path d="M8 15h.01" />
+                <path d="M12 15h.01" />
+                <path d="M16 15h.01" />
+              </svg>
+            </span>
+            <span class="sidebar-label">Librar</span>
+          </button>
+          <button class="sidebar-item sidebar-item--solicitudes" data-target="mis-reservas">
+            <span class="sidebar-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 4h14" />
+                <path d="M5 8h14" />
+                <path d="M5 12h14" />
+                <path d="M5 16h9" />
+                <path d="M5 20h6" />
+              </svg>
+            </span>
+            <span class="sidebar-label">Mis solicitudes</span>
+          </button>
+          <button class="sidebar-item" data-target="reportes">
+            <span class="sidebar-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19V9" />
+                <path d="M10 19V5" />
+                <path d="M16 19V12" />
+                <path d="M20 21H4" />
+              </svg>
+            </span>
+            <span class="sidebar-label">Reportes</span>
+          </button>
+          <button class="sidebar-item" data-target="ayuda">
+            <span class="sidebar-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 21a9 9 0 1 0-9-9" />
+                <path d="M12 17v.01" />
+                <path d="M11 9.5a2 2 0 1 1 2.8 1.8 2 2 0 0 0-1.2 1.84V13" />
+              </svg>
+            </span>
+            <span class="sidebar-label">Ayuda</span>
+          </button>
+          <button class="sidebar-item sidebar-item--panel" data-target="panel-control">
+            <span class="sidebar-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="6" rx="2" />
+                <rect x="3" y="14" width="18" height="6" rx="2" />
+                <circle cx="8" cy="7" r="1.4" />
+                <circle cx="16" cy="17" r="1.4" />
+              </svg>
+            </span>
+            <span class="sidebar-label">Panel control</span>
+          </button>
+        </nav>
+      </aside>
+
+      <main class="app-main">
+        <div class="app-hero">
+          <div class="hero-card">
+            <div class="hero-brand">
+              <img class="hero-logo" src="https://seleccion.unisono.es/imagenes/logo_color.png" alt="Logo Intelcia">
+              <div class="hero-text">
+                <h1 id="mainTitle" class="hero-title">Bolsa de horas</h1>
+                <p class="hero-description">Consulta la disponibilidad de horas y gestiona tus solicitudes de un vistazo.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="app-content">
+          <section id="section-inicio" class="app-section is-active" data-section="inicio">
+            <div class="dashboard">
+              <header class="dashboard-header">
+                <div class="dashboard-welcome">
+                  <h2 id="dashboardWelcomeTitle">Bienvenido/a</h2>
+                  <p>Este es tu resumen.</p>
+                </div>
+                <div class="dashboard-meta" id="dashboardMeta" hidden>
+                  <span class="meta-label">Actualizado:</span>
+                  <time id="dashboardLastUpdated">--</time>
+                </div>
+              </header>
+
+              <div class="dashboard-metrics">
+                <article class="metric-card" data-metric="total-solicitudes">
+                  <span class="metric-label">Total solicitudes</span>
+                  <span class="metric-value" id="metricTotalSolicitudes">0</span>
+                  <span class="metric-helper">todas tus solicitudes</span>
+                </article>
+                <article class="metric-card" data-metric="proximas">
+                  <span class="metric-label">Próximas solicitudes</span>
+                  <span class="metric-value" id="metricProximasSolicitudes">0</span>
+                  <span class="metric-helper">solicitudes futuras</span>
+                </article>
+                <article class="metric-card" data-metric="horas-trabajar">
+                  <span class="metric-label">Total horas solicitadas trabajar</span>
+                  <span class="metric-value" id="metricHorasTrabajar">0</span>
+                  <span class="metric-helper">acumuladas</span>
+                </article>
+                <article class="metric-card" data-metric="horas-librar">
+                  <span class="metric-label">Total horas solicitadas librar</span>
+                  <span class="metric-value" id="metricHorasLibrar">0</span>
+                  <span class="metric-helper">acumuladas</span>
+                </article>
+                <article class="metric-card" data-metric="saldo">
+                  <span class="metric-label">Saldo</span>
+                  <span class="metric-value" id="metricSaldo">0</span>
+                  <span class="metric-helper">librar – trabajar</span>
+                </article>
+              </div>
+
+              <div class="dashboard-panels">
+                <section class="panel" aria-labelledby="panelUpcomingTitle">
+                  <div class="panel-head">
+                    <div>
+                      <h3 id="panelUpcomingTitle">Próximas solicitudes</h3>
+                      <span class="panel-subtitle">Las 5 próximas solicitudes</span>
+                    </div>
+                  </div>
+                  <div class="panel-body table-wrapper">
+                    <table class="dashboard-table">
+                      <thead>
+                        <tr>
+                          <th>Campaña</th>
+                          <th>Tipo</th>
+                          <th>Fecha</th>
+                          <th>Horario</th>
+                        </tr>
+                      </thead>
+                      <tbody id="dashboardUpcomingBody">
+                        <tr class="table-placeholder">
+                          <td colspan="4">No hay solicitudes próximas.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <section class="panel" aria-labelledby="panelChartTitle">
+                  <div class="panel-head">
+                    <div>
+                      <h3 id="panelChartTitle">Estadísticas de solicitudes</h3>
+                      <span class="panel-subtitle">Horas solicitadas (últimos 6 meses)</span>
+                    </div>
+                  </div>
+                  <div class="panel-body">
+                    <canvas id="dashboardSolicitudesChart" height="260" role="img" aria-label="Solicitudes mensuales"></canvas>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <section id="section-panel-control" class="app-section" data-section="panel-control">
+            <div class="control-panel">
+              <header class="control-panel-header">
+                <h2>Panel de control</h2>
+                <p>Acciones rápidas para cargar horas trabajar o librar.</p>
+              </header>
+              <div class="control-panel-actions">
+                <button type="button" class="control-panel-btn control-panel-btn--trabajar">Cargar horas trabajar</button>
+                <input type="file" id="uploadHorasTrabajarInput" accept=".xlsx,.xls,.csv" hidden>
+                <input type="file" id="uploadHorasLibrarInput" accept=".xlsx,.xls,.csv" hidden>
+                <button type="button" class="control-panel-btn control-panel-btn--librar">Cargar horas librar</button>
+              </div>
+            </div>
+          </section>
+
+          <?!= HtmlService.createHtmlOutputFromFile('calendario').getContent(); ?>
+
+          <section id="section-mis-reservas" class="app-section" data-section="mis-reservas">
+            <section class="panel" aria-labelledby="panelMisSolicitudesTitle">
+              <div class="panel-head">
+                <div>
+                  <h3 id="panelMisSolicitudesTitle">Mis solicitudes</h3>
+                  <span class="panel-subtitle">Historial completo de solicitudes acumuladas</span>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="table-controls" id="misSolicitudesFilters" aria-label="Filtros de solicitudes">
+                  <div class="table-controls-group">
+                    <label class="table-control-field">
+                      <span>Fecha desde</span>
+                      <input type="date" id="misSolicitudesFechaInicio" name="fechaInicio">
+                    </label>
+                    <label class="table-control-field">
+                      <span>Fecha hasta</span>
+                      <input type="date" id="misSolicitudesFechaFin" name="fechaFin">
+                    </label>
+                  </div>
+                  <div class="table-controls-group">
+                    <label class="table-control-field">
+                      <span>Campaña</span>
+                      <select id="misSolicitudesCampania" name="campania">
+                        <option value="">Todas</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="table-controls-group">
+                    <label class="table-control-field">
+                      <span>Correo electrónico</span>
+                      <input type="text" id="misSolicitudesCorreo" name="correo" placeholder="persona@empresa.com" autocomplete="off">
+                    </label>
+                  </div>
+                  <div class="table-controls-group">
+                    <label class="table-control-field">
+                      <span>ID de reserva</span>
+                      <input type="text" id="misSolicitudesId" name="reservaId" placeholder="BH00000000" autocomplete="off">
+                    </label>
+                  </div>
+                  <button type="button" id="misSolicitudesFiltersReset" class="btn btn-ghost">Limpiar filtros</button>
+                </div>
+                <div class="table-wrapper">
+                  <table class="dashboard-table">
+                    <thead>
+                      <tr>
+                        <th>ID reserva</th>
+                        <th>Campaña</th>
+                        <th>Correo</th>
+                        <th>Fecha</th>
+                        <th>Franja</th>
+                        <th>Horas</th>
+                        <th>Tipo</th>
+                        <th>Estado solicitud</th>
+                        <th>Acciones</th>
+                        <th class="table-header-checkbox"><input type="checkbox" id="selectAllCheckbox" aria-label="Seleccionar todo"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="misSolicitudesBody">
+                      <tr class="table-placeholder">
+                        <td colspan="10">Cargando solicitudes…</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="table-footer-actions">
+                  <button type="button" id="deleteSelectedButton" class="btn btn-danger" disabled>Eliminar</button>
+                </div>
+
+                <div class="table-pagination" id="misSolicitudesPagination" hidden>
+                  <button type="button" class="table-pagination-button" id="misSolicitudesPrev" aria-label="Página anterior">Anterior</button>
+                  <span class="table-pagination-info" id="misSolicitudesPaginationInfo">Página 1 de 1</span>
+                  <button type="button" class="table-pagination-button" id="misSolicitudesNext" aria-label="Página siguiente">Siguiente</button>
+                </div>
+          </div>
+        </section>
+      </section>
+
+      <div id="deleteMultipleConfirmOverlay" class="modal-overlay modal-overlay--stacked" hidden>
+        <div id="deleteMultipleConfirmModal" class="modal-confirm" role="dialog" aria-modal="true" aria-labelledby="deleteMultipleConfirmTitle">
+          <div class="modal-confirm-icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" focusable="false" role="img">
+              <path fill="currentColor" d="M9 3h6l1 1h5v2H3V4h5l1-1zm-3 6h12l-1.1 11.2a2 2 0 0 1-2 1.8H9.1a2 2 0 0 1-2-1.8L6 9zm3 2v9h2v-9H9zm4 0v9h2v-9h-2z"/>
+            </svg>
+          </div>
+          <h3 id="deleteMultipleConfirmTitle" class="modal-confirm-title">Eliminar solicitudes</h3>
+          <p id="deleteMultipleConfirmMessage" class="modal-confirm-message">¿Seguro que quieres eliminar X registros?</p>
+          <div class="modal-confirm-actions">
+            <button type="button" id="deleteMultipleConfirmCancel" class="btn btn-secondary">Cancelar</button>
+            <button type="button" id="deleteMultipleConfirmAccept" class="btn btn-danger">Eliminar</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="deleteMultipleSuccessOverlay" class="modal-overlay modal-overlay--stacked" hidden>
+        <div id="deleteMultipleSuccessModal" class="modal-confirm modal-confirm--success" role="alertdialog" aria-modal="true" aria-labelledby="deleteMultipleSuccessTitle">
+          <div class="modal-confirm-icon modal-confirm-icon--success" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" focusable="false" role="img">
+              <path fill="currentColor" d="M9 16.2 4.8 12l1.4-1.4L9 13.4l8.8-8.8L19.2 6z"/>
+            </svg>
+          </div>
+          <h3 id="deleteMultipleSuccessTitle" class="modal-confirm-title">Solicitudes eliminadas</h3>
+          <p id="deleteMultipleSuccessMessage" class="modal-confirm-message">Se han eliminado correctamente X registros.</p>
+          <div class="modal-confirm-actions modal-confirm-actions--single">
+            <button type="button" id="deleteMultipleSuccessAccept" class="btn btn-primary">Aceptar</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="editSolicitudOverlay" class="modal-overlay" hidden>
+        <div id="editSolicitudModal" role="dialog" aria-modal="true" aria-labelledby="editSolicitudTitle">
+          <button type="button" id="editSolicitudClose" class="modal-close" aria-label="Cerrar">×</button>
+          <div class="modal-header">
+            <h3 id="editSolicitudTitle">Editar solicitud</h3>
+            <button type="button" id="editSolicitudDelete" class="modal-icon-button" aria-label="Eliminar solicitud" hidden>
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" focusable="false" role="img">
+                <path fill="currentColor" d="M9 3h6l1 1h5v2H3V4h5l1-1zm-3 6h12l-1.1 11.2a2 2 0 0 1-2 1.8H9.1a2 2 0 0 1-2-1.8L6 9zm3 2v9h2v-9H9zm4 0v9h2v-9h-2z"/>
+              </svg>
+            </button>
+          </div>
+          <p id="editSolicitudSubtitle">Actualiza los datos de la solicitud seleccionada y guarda los cambios.</p>
+          <form id="editSolicitudForm" autocomplete="off">
+            <input type="hidden" name="key" id="editSolicitudKey">
+            <div class="modal-form-grid">
+              <label class="modal-form-field">
+                <span>Tipo</span>
+                <input type="text" id="editSolicitudTipo" name="tipo" readonly>
+              </label>
+              <label class="modal-form-field">
+                <span>Correo</span>
+                <input type="email" id="editSolicitudCorreo" name="correo" readonly>
+              </label>
+              <label class="modal-form-field">
+                <span>Campaña</span>
+                <input type="text" id="editSolicitudCampania" name="campania" required>
+              </label>
+              <label class="modal-form-field">
+                <span>Fecha</span>
+                <input type="date" id="editSolicitudFecha" name="fecha" required>
+              </label>
+              <label class="modal-form-field">
+                <span>Hora de inicio</span>
+                <input type="time" id="editSolicitudHoraInicio" name="horaInicio" required>
+              </label>
+              <label class="modal-form-field">
+                <span>Total de horas</span>
+                <input type="number" id="editSolicitudHoras" name="horas" min="0.5" step="0.5" required>
+              </label>
+            </div>
+            <div id="editSolicitudError" role="alert" hidden></div>
+            <div class="modal-actions">
+              <button type="submit" id="editSolicitudSave" class="btn btn-primary">Guardar cambios</button>
+              <button type="button" id="editSolicitudCancel" class="btn btn-secondary">Cancelar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div id="deleteSolicitudConfirmOverlay" class="modal-overlay modal-overlay--stacked" hidden>
+        <div id="deleteSolicitudConfirmModal" class="modal-confirm" role="dialog" aria-modal="true" aria-labelledby="deleteSolicitudConfirmTitle">
+          <div class="modal-confirm-icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" focusable="false" role="img">
+              <path fill="currentColor" d="M9 3h6l1 1h5v2H3V4h5l1-1zm-3 6h12l-1.1 11.2a2 2 0 0 1-2 1.8H9.1a2 2 0 0 1-2-1.8L6 9zm3 2v9h2v-9H9zm4 0v9h2v-9h-2z"/>
+            </svg>
+          </div>
+          <h3 id="deleteSolicitudConfirmTitle" class="modal-confirm-title">Eliminar solicitud</h3>
+          <p id="deleteSolicitudConfirmMessage" class="modal-confirm-message">¿Seguro que quieres eliminar esta solicitud?</p>
+          <div class="modal-confirm-actions">
+            <button type="button" id="deleteSolicitudConfirmCancel" class="btn btn-secondary">Cancelar</button>
+            <button type="button" id="deleteSolicitudConfirmAccept" class="btn btn-danger">Eliminar</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="deleteSolicitudSuccessOverlay" class="modal-overlay modal-overlay--stacked" hidden>
+        <div id="deleteSolicitudSuccessModal" class="modal-confirm modal-confirm--success" role="alertdialog" aria-modal="true" aria-labelledby="deleteSolicitudSuccessTitle">
+          <div class="modal-confirm-icon modal-confirm-icon--success" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" focusable="false" role="img">
+              <path fill="currentColor" d="M9 16.2 4.8 12l1.4-1.4L9 13.4l8.8-8.8L19.2 6z"/>
+            </svg>
+          </div>
+          <h3 id="deleteSolicitudSuccessTitle" class="modal-confirm-title">Solicitud eliminada</h3>
+          <p id="deleteSolicitudSuccessMessage" class="modal-confirm-message">La solicitud se eliminó correctamente.</p>
+          <div class="modal-confirm-actions modal-confirm-actions--single">
+            <button type="button" id="deleteSolicitudSuccessAccept" class="btn btn-primary">Aceptar</button>
+          </div>
+        </div>
+      </div>
+
+      <section id="section-reportes" class="app-section" data-section="reportes">
+        <section id="reports" class="section">
+          <h1>Informes - Looker Studio</h1>
+          <iframe
+                width="100%"
+                height="700"
+                src="https://lookerstudio.google.com/embed/reporting/903000c6-9fbd-4502-a78b-c8f9fe1a09ec/page/p_zjbte60xtd"
+                frameborder="0"
+                style="border:0; border-radius: 18px; box-shadow: 0 2px 16px #bc348b16;"
+                allowfullscreen
+                sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox">
+              </iframe>
+            </section>
+          </section>
+
+          <?!= HtmlService.createHtmlOutputFromFile('ayuda').getContent(); ?>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const navButtons = Array.from(document.querySelectorAll('.sidebar-item'));
+        const sections = Array.from(document.querySelectorAll('.app-section'));
+        let activeCalendarMode = 'trabajar';
+        const reportesNavButton = document.querySelector('.sidebar-item[data-target="reportes"]');
+        const reportesSection = document.querySelector('.app-section[data-section="reportes"]');
+        const fallbackDashboardData = {
+          role: 'user',
+          usuarioNombre: 'Fran',
+          lastUpdated: new Date().toLocaleDateString('es-ES'),
+          metrics: {
+            totalSolicitudes: 12,
+            proximasSolicitudes: 2,
+            totalHorasTrabajar: 6,
+            totalHorasLibrar: 8,
+            saldo: 2
+          },
+          proximasSolicitudes: [
+            {
+              campania: 'Barcelona',
+              tipo: 'Trabajar',
+              fecha: '04/10/2025',
+              horario: '08:00-16:30'
+            },
+            {
+              campania: 'People',
+              tipo: 'Librar',
+              fecha: '06/10/2025 - 10/10/2025',
+              horario: '09:00-17:00'
+            }
+          ],
+          chart: {
+            labels: ['May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct'],
+            values: [0, 0, 0, 4, 5, 6]
+          }
+        };
+        const fallbackMisSolicitudesData = [];
+
+        const horasUploadConfigs = [
+          {
+            button: document.querySelector('.control-panel-btn--trabajar'),
+            input: document.getElementById('uploadHorasTrabajarInput'),
+            serverFunction: 'cargarHorasTrabajarDesdeExcel',
+            processingLabel: 'Importando...'
+          },
+          {
+            button: document.querySelector('.control-panel-btn--librar'),
+            input: document.getElementById('uploadHorasLibrarInput'),
+            serverFunction: 'cargarHorasLibrarDesdeExcel',
+            processingLabel: 'Importando...'
+          }
+        ];
+
+        const horasUploads = horasUploadConfigs
+          .map(setupHorasUpload)
+          .filter(Boolean);
+
+        const editModal = {
+          overlay: document.getElementById('editSolicitudOverlay'),
+          modal: document.getElementById('editSolicitudModal'),
+          form: document.getElementById('editSolicitudForm'),
+          error: document.getElementById('editSolicitudError'),
+          fields: {
+            key: document.getElementById('editSolicitudKey'),
+            tipo: document.getElementById('editSolicitudTipo'),
+            correo: document.getElementById('editSolicitudCorreo'),
+            campania: document.getElementById('editSolicitudCampania'),
+            fecha: document.getElementById('editSolicitudFecha'),
+            horaInicio: document.getElementById('editSolicitudHoraInicio'),
+            horas: document.getElementById('editSolicitudHoras')
+          },
+          buttons: {
+            save: document.getElementById('editSolicitudSave'),
+            cancel: document.getElementById('editSolicitudCancel'),
+            close: document.getElementById('editSolicitudClose'),
+            delete: document.getElementById('editSolicitudDelete')
+          }
+        };
+
+        const deleteConfirmModal = {
+          overlay: document.getElementById('deleteSolicitudConfirmOverlay'),
+          modal: document.getElementById('deleteSolicitudConfirmModal'),
+          title: document.getElementById('deleteSolicitudConfirmTitle'),
+          message: document.getElementById('deleteSolicitudConfirmMessage'),
+          confirm: document.getElementById('deleteSolicitudConfirmAccept'),
+          cancel: document.getElementById('deleteSolicitudConfirmCancel')
+        };
+
+        const deleteSuccessModal = {
+          overlay: document.getElementById('deleteSolicitudSuccessOverlay'),
+          modal: document.getElementById('deleteSolicitudSuccessModal'),
+          title: document.getElementById('deleteSolicitudSuccessTitle'),
+          message: document.getElementById('deleteSolicitudSuccessMessage'),
+          accept: document.getElementById('deleteSolicitudSuccessAccept')
+        };
+
+        const editModalState = {
+          solicitud: null,
+          submitting: false
+        };
+
+        const misSolicitudesState = {
+          all: [],
+          filtered: [],
+          campaigns: [],
+          currentPage: 1,
+          pageSize: 30,
+          filters: {
+            dateStart: '',
+            dateEnd: '',
+            campania: '',
+            correo: '',
+            reservaId: ''
+          }
+        };
+
+        const misSolicitudesUI = {
+          tbody: document.getElementById('misSolicitudesBody'),
+          selectAllCheckbox: document.getElementById('selectAllCheckbox'),
+          deleteSelectedButton: document.getElementById('deleteSelectedButton'),
+          filters: {
+            container: document.getElementById('misSolicitudesFilters'),
+            dateStart: document.getElementById('misSolicitudesFechaInicio'),
+            dateEnd: document.getElementById('misSolicitudesFechaFin'),
+            campania: document.getElementById('misSolicitudesCampania'),
+            correo: document.getElementById('misSolicitudesCorreo'),
+            reservaId: document.getElementById('misSolicitudesId'),
+            reset: document.getElementById('misSolicitudesFiltersReset')
+          },
+          pagination: {
+            container: document.getElementById('misSolicitudesPagination'),
+            info: document.getElementById('misSolicitudesPaginationInfo'),
+            prev: document.getElementById('misSolicitudesPrev'),
+            next: document.getElementById('misSolicitudesNext')
+          }
+        };
+
+        const deleteMultipleConfirmModal = {
+          overlay: document.getElementById('deleteMultipleConfirmOverlay'),
+          message: document.getElementById('deleteMultipleConfirmMessage'),
+          confirm: document.getElementById('deleteMultipleConfirmAccept'),
+          cancel: document.getElementById('deleteMultipleConfirmCancel')
+        };
+
+        const deleteMultipleSuccessModal = {
+          overlay: document.getElementById('deleteMultipleSuccessOverlay'),
+          message: document.getElementById('deleteMultipleSuccessMessage'),
+          accept: document.getElementById('deleteMultipleSuccessAccept')
+        };
+
+        initializeMisSolicitudesFilters();
+        setupMultipleDelete();
+
+        let dashboardLoaded = false;
+        let solicitudesChartInstance = null;
+        let accessContext = { role: 'user', isAdmin: false, email: '' };
+        const DEFAULT_ACCESS_CONTEXT = { role: 'user', isAdmin: false, email: '' };
+
+        function setupHorasUpload(config) {
+          if (!config || !config.button || !config.input || !config.serverFunction) {
+            return null;
+          }
+
+          const state = {
+            button: config.button,
+            input: config.input,
+            serverFunction: config.serverFunction,
+            processingLabel: config.processingLabel || 'Procesando...',
+            originalText: config.button.textContent,
+            uploading: false
+          };
+
+          state.button.addEventListener('click', () => {
+            if (state.uploading) return;
+            state.input.click();
+          });
+
+          state.input.addEventListener('change', (event) => {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            startHorasUpload(state, file);
+          });
+
+          return state;
+        }
+
+        function startHorasUpload(state, file) {
+          if (!state || !file) return;
+
+          const allowedExtensions = /\.(xlsx|xls|csv)$/i;
+          if (!allowedExtensions.test(file.name || '')) {
+            alert('Formato de archivo no soportado. Usa un Excel o CSV.');
+            resetHorasUploadInput(state);
+            return;
+          }
+
+          if (typeof FileReader === 'undefined') {
+            alert('El navegador no soporta la lectura de archivos.');
+            resetHorasUploadInput(state);
+            return;
+          }
+
+          setHorasUploadState(state, true, state.processingLabel);
+          const reader = new FileReader();
+
+          reader.onload = (event) => {
+            const result = event && event.target ? event.target.result : null;
+            if (!result || typeof result !== 'string') {
+              setHorasUploadState(state, false);
+              alert('No se pudo leer el archivo seleccionado.');
+              resetHorasUploadInput(state);
+              return;
+            }
+
+            const base64Index = result.indexOf('base64,');
+            const base64Data = base64Index >= 0 ? result.substring(base64Index + 7) : '';
+            if (!base64Data) {
+              setHorasUploadState(state, false);
+              alert('No se pudo procesar el archivo seleccionado.');
+              resetHorasUploadInput(state);
+              return;
+            }
+
+            if (typeof google === 'undefined' || !google.script || !google.script.run) {
+              setHorasUploadState(state, false);
+              alert('Esta acción solo está disponible desde la aplicación publicada.');
+              resetHorasUploadInput(state);
+              return;
+            }
+
+            const uploadCall = google.script.run
+              .withSuccessHandler((response) => {
+                setHorasUploadState(state, false);
+                resetHorasUploadInput(state);
+                if (response && typeof response === 'object') {
+                  const rows = typeof response.importedRows === 'number' ? response.importedRows : null;
+                  const msg = response.message || (rows != null
+                    ? `Archivo procesado. Registros importados: ${rows}.`
+                    : 'Archivo procesado correctamente.');
+                  alert(msg);
+                } else {
+                  alert('Archivo procesado correctamente.');
+                }
+              })
+              .withFailureHandler((error) => {
+                setHorasUploadState(state, false);
+                resetHorasUploadInput(state);
+                const message = error && error.message ? error.message : String(error || 'Error desconocido');
+                alert(`Error al cargar el archivo: ${message}`);
+              });
+
+            if (typeof uploadCall[state.serverFunction] === 'function') {
+              uploadCall[state.serverFunction]({
+                fileName: file.name,
+                mimeType: file.type || '',
+                base64: base64Data
+              });
+            } else {
+              setHorasUploadState(state, false);
+              resetHorasUploadInput(state);
+              alert('No se encontró la acción remota para la importación.');
+            }
+          };
+
+          reader.onerror = () => {
+            setHorasUploadState(state, false);
+            alert('No se pudo leer el archivo seleccionado.');
+            resetHorasUploadInput(state);
+          };
+
+          reader.readAsDataURL(file);
+        }
+
+        function setHorasUploadState(state, isUploading, label) {
+          if (!state || !state.button) return;
+          state.uploading = isUploading;
+          if (isUploading) {
+            state.button.disabled = true;
+            state.button.textContent = label || 'Procesando...';
+          } else {
+            state.button.disabled = false;
+            state.button.textContent = state.originalText || state.button.textContent;
+          }
+        }
+
+        function resetHorasUploadInput(state) {
+          if (state && state.input) {
+            state.input.value = '';
+          }
+        }
+
+        function canAccessSection(target) {
+          return target !== 'reportes' || accessContext.isAdmin;
+        }
+
+        function enforceSectionVisibility() {
+          if (!reportesNavButton || !reportesSection) return;
+          if (accessContext.isAdmin) {
+            reportesNavButton.hidden = false;
+            reportesNavButton.style.display = '';
+            reportesSection.hidden = false;
+          } else {
+            reportesNavButton.hidden = true;
+            reportesNavButton.style.display = 'none';
+            reportesNavButton.classList.remove('active');
+            reportesSection.hidden = true;
+            reportesSection.classList.remove('is-active');
+          }
+        }
+
+        function updateMetricHelpers(role) {
+          const isAdmin = role === 'admin';
+          const helperTexts = {
+            'total-solicitudes': isAdmin ? 'todas las solicitudes' : 'todas tus solicitudes',
+            proximas: isAdmin ? 'solicitudes futuras (todas)' : 'solicitudes futuras',
+            'horas-trabajar': isAdmin ? 'acumuladas (global)' : 'acumuladas',
+            'horas-librar': isAdmin ? 'acumuladas (global)' : 'acumuladas',
+            saldo: isAdmin ? 'librar – trabajar (global)' : 'librar – trabajar'
+          };
+
+          Object.entries(helperTexts).forEach(([metric, text]) => {
+            const helper = document.querySelector(`[data-metric="${metric}"] .metric-helper`);
+            if (helper) {
+              helper.textContent = text;
+            }
+          });
+        }
+
+        function applyAccessContext(context = DEFAULT_ACCESS_CONTEXT) {
+          const role = context && context.role === 'admin' ? 'admin' : 'user';
+          const email = context && context.email ? String(context.email).trim() : accessContext.email;
+          const isAdmin = role === 'admin';
+          const changed = role !== accessContext.role || email !== accessContext.email || isAdmin !== accessContext.isAdmin;
+
+          accessContext = { role, isAdmin, email };
+          updateMetricHelpers(role);
+          enforceSectionVisibility();
+
+          if (changed && !isAdmin) {
+            const activeSection = sections.find(section => section.classList.contains('is-active'));
+            if (activeSection && activeSection.dataset.section === 'reportes') {
+              activateSection('inicio');
+            }
+          }
+        }
+
+        function loadAccessContext() {
+          const onSuccess = (context) => applyAccessContext(context || DEFAULT_ACCESS_CONTEXT);
+          const onFailure = () => applyAccessContext(DEFAULT_ACCESS_CONTEXT);
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(onSuccess)
+              .withFailureHandler(onFailure)
+              .getAccessContext();
+          } else {
+            onFailure();
+          }
+        }
+
+        updateMetricHelpers(accessContext.role);
+        enforceSectionVisibility();
+        loadAccessContext();
+        setupEditSolicitudModal();
+
+        function syncCalendarNav(mode, { updateSection = false, updateOtherButtons = true } = {}) {
+          const normalized = mode === 'librar' ? 'librar' : 'trabajar';
+          activeCalendarMode = normalized;
+
+          navButtons.forEach(btn => {
+            if (btn.dataset.target === 'calendario') {
+              btn.classList.toggle('active', btn.dataset.calendarMode === normalized);
+            } else if (updateOtherButtons) {
+              btn.classList.remove('active');
+            }
+          });
+
+          if (updateSection) {
+            sections.forEach(section => {
+              section.classList.toggle('is-active', section.dataset.section === 'calendario');
+            });
+          }
+        }
+
+        window.syncCalendarNav = function(mode, options) {
+          syncCalendarNav(mode, options);
+        };
+
+        function activateSection(target, { button = null, calendarMode = null } = {}) {
+          if (!canAccessSection(target)) {
+            return;
+          }
+          if (target === 'calendario') {
+            const selectedMode = calendarMode || activeCalendarMode || 'trabajar';
+            syncCalendarNav(selectedMode, { updateSection: true, updateOtherButtons: true });
+          } else {
+            navButtons.forEach(btn => {
+              const matchesTarget = btn === button || (!button && btn.dataset.target === target && !btn.dataset.calendarMode);
+              btn.classList.toggle('active', matchesTarget);
+            });
+            sections.forEach(section => {
+              const isActive = section.dataset.section === target;
+              section.classList.toggle('is-active', isActive);
+            });
+          }
+
+          if (target === 'inicio' && !dashboardLoaded) {
+            loadInicioDashboard();
+          }
+
+          if (target === 'mis-reservas') {
+            loadMisSolicitudes();
+          }
+
+          if (target === 'calendario') {
+            const modeToShow = calendarMode || activeCalendarMode || 'trabajar';
+            try {
+              if (modeToShow === 'librar') {
+                if (typeof mostrarCalendarioLibrar === 'function') {
+                  mostrarCalendarioLibrar({ skipNavUpdate: true });
+                }
+                setTimeout(() => {
+                  if (typeof calendarLibrar !== 'undefined' && calendarLibrar) {
+                    calendarLibrar.updateSize();
+                  }
+                }, 120);
+              } else {
+                if (typeof volverCalendario === 'function') {
+                  volverCalendario({ skipNavUpdate: true });
+                }
+                setTimeout(() => {
+                  if (typeof calendar !== 'undefined' && calendar) {
+                    calendar.updateSize();
+                  }
+                }, 120);
+              }
+            } catch (err) {
+              console.log('No se pudo actualizar el calendario:', err);
+            }
+          }
+        }
+
+        function loadInicioDashboard() {
+          const onSuccess = (payload) => {
+            const data = (payload && typeof payload === 'object') ? payload : fallbackDashboardData;
+            renderInicioDashboard(data);
+          };
+          const onFailure = () => {
+            renderInicioDashboard(fallbackDashboardData);
+          };
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(onSuccess)
+              .withFailureHandler(onFailure)
+              .getInicioDashboardData();
+          } else {
+            onSuccess(fallbackDashboardData);
+          }
+        }
+
+        function renderInicioDashboard(data) {
+          dashboardLoaded = true;
+          const normalizedRole = (data && data.role === 'admin') ? 'admin' : 'user';
+          applyAccessContext({ role: normalizedRole });
+          const metrics = data.metrics || {};
+          setMetricValue('metricTotalSolicitudes', metrics.totalSolicitudes);
+          setMetricValue('metricProximasSolicitudes', metrics.proximasSolicitudes);
+          setMetricValue('metricHorasTrabajar', metrics.totalHorasTrabajar);
+          setMetricValue('metricHorasLibrar', metrics.totalHorasLibrar);
+          setMetricValue('metricSaldo', metrics.saldo, { showSign: true });
+
+          const welcome = document.getElementById('dashboardWelcomeTitle');
+          const nombre = data.usuarioNombre ? String(data.usuarioNombre).trim() : '';
+          if (welcome) {
+            welcome.textContent = nombre ? `Bienvenido, ${nombre}!` : 'Bienvenido/a';
+          }
+
+          const meta = document.getElementById('dashboardMeta');
+          const lastUpdated = document.getElementById('dashboardLastUpdated');
+          if (meta && lastUpdated) {
+            if (data.lastUpdated) {
+              meta.hidden = false;
+              lastUpdated.textContent = data.lastUpdated;
+            } else {
+              meta.hidden = true;
+            }
+          }
+
+          renderSolicitudesTable(Array.isArray(data.proximasSolicitudes) ? data.proximasSolicitudes : []);
+          renderSolicitudesChart(data.chart);
+        }
+
+        function setMetricValue(elementId, value, options = {}) {
+          const el = document.getElementById(elementId);
+          if (!el) return;
+          el.textContent = formatNumber(value, options);
+        }
+
+        function formatNumber(value, { showSign = false } = {}) {
+          const num = Number(value);
+          if (!Number.isFinite(num)) {
+            return '0';
+          }
+          const formatted = num.toLocaleString('es-ES', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+          });
+          if (showSign && num > 0) {
+            return `+${formatted}`;
+          }
+          return formatted;
+        }
+
+        function renderSolicitudesTable(solicitudes) {
+          const tbody = document.getElementById('dashboardUpcomingBody');
+          if (!tbody) return;
+          tbody.innerHTML = '';
+
+          if (!solicitudes.length) {
+            const row = document.createElement('tr');
+            row.className = 'table-placeholder';
+            const cell = document.createElement('td');
+            cell.colSpan = 4;
+            cell.textContent = 'No hay solicitudes próximas.';
+            row.appendChild(cell);
+            tbody.appendChild(row);
+            return;
+          }
+
+          const normalizeFecha = (valor) => {
+            if (!valor && valor !== 0) return '';
+            if (valor instanceof Date) {
+              return valor.toLocaleDateString('es-ES');
+            }
+            return String(valor).trim();
+          };
+
+          solicitudes.slice(0, 5).forEach(solicitud => {
+            const row = document.createElement('tr');
+            const fechaValor = (() => {
+              const fechaDirecta = solicitud && solicitud.fecha != null ? normalizeFecha(solicitud.fecha) : '';
+              if (fechaDirecta) return fechaDirecta;
+              const inicio = solicitud && solicitud.fechaInicio != null ? normalizeFecha(solicitud.fechaInicio) : '';
+              const fin = solicitud && solicitud.fechaFin != null ? normalizeFecha(solicitud.fechaFin) : '';
+              if (inicio && fin && inicio !== fin) {
+                return `${inicio} - ${fin}`;
+              }
+              return inicio || fin;
+            })();
+
+            const rowData = {
+              campania: solicitud && (solicitud.campania || solicitud.sala),
+              tipo: solicitud && solicitud.tipo,
+              fecha: fechaValor,
+              horario: solicitud && (solicitud.horario || solicitud.franja || solicitud.horas)
+            };
+
+            ['campania', 'tipo', 'fecha', 'horario'].forEach(key => {
+              const cell = document.createElement('td');
+              const valor = rowData[key] != null ? String(rowData[key]).trim() : '';
+              cell.textContent = valor || '—';
+              if (key === 'fecha') {
+                cell.classList.add('table-cell-date');
+              }
+              row.appendChild(cell);
+            });
+            tbody.appendChild(row);
+          });
+        }
+
+        function renderSolicitudesChart(chartData) {
+          const canvas = document.getElementById('dashboardSolicitudesChart');
+          if (!canvas || typeof Chart === 'undefined') return;
+
+          if (!chartData || !Array.isArray(chartData.labels) || !chartData.labels.length) {
+            if (solicitudesChartInstance) {
+              solicitudesChartInstance.destroy();
+              solicitudesChartInstance = null;
+            }
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            return;
+          }
+
+          const ctx = canvas.getContext('2d');
+          if (solicitudesChartInstance) {
+            solicitudesChartInstance.destroy();
+          }
+
+          const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+          gradient.addColorStop(0, '#f062b8');
+          gradient.addColorStop(1, '#bc348b');
+
+          solicitudesChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: chartData.labels,
+              datasets: [
+                {
+                  data: chartData.values || [],
+                  label: 'Horas solicitadas',
+                  backgroundColor: gradient,
+                  borderRadius: 14,
+                  borderSkipped: false,
+                  maxBarThickness: 46
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                x: {
+                  grid: { display: false },
+                  ticks: {
+                    color: '#7b718c',
+                    font: { family: 'Nunito', weight: '600' }
+                  }
+                },
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    stepSize: 1,
+                    color: '#7b718c',
+                    font: { family: 'Nunito', weight: '600' }
+                  },
+                  grid: {
+                    color: 'rgba(188, 52, 139, 0.12)',
+                    drawBorder: false
+                  }
+                }
+              },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: '#2f2a3d',
+                  titleColor: '#fff',
+                  bodyColor: '#fff',
+                  displayColors: false,
+                  callbacks: {
+                    label: context => `Horas solicitadas: ${formatNumber(context.parsed.y)}`
+                  }
+                }
+              }
+            }
+          });
+        }
+
+        function loadMisSolicitudes() {
+          setMisSolicitudesPlaceholder('Cargando solicitudes…');
+
+          const onSuccess = (data) => {
+            renderMisSolicitudesTable(Array.isArray(data) ? data : []);
+          };
+
+          const onFailure = () => {
+            renderMisSolicitudesTable([]);
+          };
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(onSuccess)
+              .withFailureHandler(onFailure)
+              .getSolicitudesAcumuladas();
+          } else {
+            onSuccess(fallbackMisSolicitudesData);
+          }
+        }
+
+        function renderMisSolicitudesTable(solicitudes) {
+          if (!misSolicitudesUI.tbody) return;
+
+          const data = Array.isArray(solicitudes) ? solicitudes : [];
+          const normalizedData = data
+            .filter(item => item && typeof item === 'object')
+            .map(item => {
+              const reservaId = String(
+                item.reservaId ||
+                item.idReserva ||
+                item['ID reserva'] ||
+                item.reservaID ||
+                item.id ||
+                ''
+              ).trim();
+
+              return {
+                ...item,
+                reservaId
+              };
+            });
+
+          misSolicitudesState.all = normalizedData;
+          misSolicitudesState.filtered = normalizedData;
+          misSolicitudesState.currentPage = 1;
+          misSolicitudesState.campaigns = getUniqueCampanias(normalizedData);
+
+          syncMisSolicitudesFiltersFromInputs();
+          populateMisSolicitudesCampaignFilter(misSolicitudesState.campaigns, misSolicitudesState.filters.campania);
+
+          if (!normalizedData.length) {
+            setMisSolicitudesPlaceholder('No hay solicitudes registradas.');
+            updateMisSolicitudesPagination();
+            return;
+          }
+
+          applyMisSolicitudesFilters({ resetPage: true });
+        }
+
+        function initializeMisSolicitudesFilters() {
+          const { filters, pagination } = misSolicitudesUI;
+          if (!filters) return;
+
+          if (filters.dateStart) {
+            filters.dateStart.addEventListener('change', handleMisSolicitudesFilterChange);
+          }
+
+          if (filters.dateEnd) {
+            filters.dateEnd.addEventListener('change', handleMisSolicitudesFilterChange);
+          }
+
+          if (filters.campania) {
+            filters.campania.addEventListener('change', handleMisSolicitudesFilterChange);
+          }
+
+          if (filters.correo) {
+            filters.correo.addEventListener('input', handleMisSolicitudesFilterChange);
+          }
+
+          if (filters.reservaId) {
+            filters.reservaId.addEventListener('input', handleMisSolicitudesFilterChange);
+          }
+
+          if (filters.reset) {
+            filters.reset.addEventListener('click', resetMisSolicitudesFilters);
+          }
+
+          if (pagination && pagination.prev) {
+            pagination.prev.addEventListener('click', () => changeMisSolicitudesPage(-1));
+          }
+
+          if (pagination && pagination.next) {
+            pagination.next.addEventListener('click', () => changeMisSolicitudesPage(1));
+          }
+        }
+
+        function handleMisSolicitudesFilterChange() {
+          syncMisSolicitudesFiltersFromInputs();
+          applyMisSolicitudesFilters({ resetPage: true });
+        }
+
+        function resetMisSolicitudesFilters() {
+          const { filters } = misSolicitudesUI;
+          if (!filters) return;
+
+          if (filters.dateStart) filters.dateStart.value = '';
+          if (filters.dateEnd) filters.dateEnd.value = '';
+          if (filters.campania) filters.campania.value = '';
+          if (filters.correo) filters.correo.value = '';
+          if (filters.reservaId) filters.reservaId.value = '';
+
+          misSolicitudesState.filters.dateStart = '';
+          misSolicitudesState.filters.dateEnd = '';
+          misSolicitudesState.filters.campania = '';
+          misSolicitudesState.filters.correo = '';
+          misSolicitudesState.filters.reservaId = '';
+
+          applyMisSolicitudesFilters({ resetPage: true });
+        }
+
+        function syncMisSolicitudesFiltersFromInputs() {
+          const { filters } = misSolicitudesUI;
+          if (!filters) return;
+
+          const startValue = filters.dateStart ? filters.dateStart.value : '';
+          let endValue = filters.dateEnd ? filters.dateEnd.value : '';
+
+          if (startValue && endValue && startValue > endValue) {
+            endValue = startValue;
+            if (filters.dateEnd) {
+              filters.dateEnd.value = startValue;
+            }
+          }
+
+          misSolicitudesState.filters.dateStart = startValue || '';
+          misSolicitudesState.filters.dateEnd = endValue || '';
+          misSolicitudesState.filters.campania = filters.campania ? filters.campania.value : '';
+
+          if (filters.correo) {
+            const rawCorreo = String(filters.correo.value || '');
+            const trimmedCorreo = rawCorreo.trim();
+            filters.correo.value = trimmedCorreo;
+            misSolicitudesState.filters.correo = trimmedCorreo.toLowerCase();
+          } else {
+            misSolicitudesState.filters.correo = '';
+          }
+
+          if (filters.reservaId) {
+            const formatted = String(filters.reservaId.value || '').toUpperCase();
+            filters.reservaId.value = formatted;
+            misSolicitudesState.filters.reservaId = formatted;
+          } else {
+            misSolicitudesState.filters.reservaId = '';
+          }
+        }
+
+        function populateMisSolicitudesCampaignFilter(campaigns, currentValue) {
+          const select = misSolicitudesUI.filters ? misSolicitudesUI.filters.campania : null;
+          if (!select) return;
+
+          const normalizedCurrent = String(currentValue || '').trim().toLowerCase();
+          const fragment = document.createDocumentFragment();
+
+          const optionAll = document.createElement('option');
+          optionAll.value = '';
+          optionAll.textContent = 'Todas';
+          fragment.appendChild(optionAll);
+
+          campaigns.forEach(campania => {
+            const option = document.createElement('option');
+            option.value = campania;
+            option.textContent = campania;
+            fragment.appendChild(option);
+          });
+
+          select.innerHTML = '';
+          select.appendChild(fragment);
+
+          const match = campaigns.find(item => item.toLowerCase() === normalizedCurrent);
+          select.value = match || '';
+          misSolicitudesState.filters.campania = select.value;
+        }
+
+        function getUniqueCampanias(data) {
+          const unique = new Set();
+          data.forEach(item => {
+            const value = String(item && item.campania ? item.campania : '').trim();
+            if (value) unique.add(value);
+          });
+          return Array.from(unique).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+        }
+
+        function applyMisSolicitudesFilters({ resetPage = true } = {}) {
+          const { all, filters } = misSolicitudesState;
+
+          if (!Array.isArray(all) || !all.length) {
+            misSolicitudesState.filtered = [];
+            misSolicitudesState.currentPage = 1;
+            renderMisSolicitudesPage();
+            updateMisSolicitudesPagination();
+            return;
+          }
+
+          const startTimestamp = parseInputDateToTimestamp(filters.dateStart);
+          const endTimestamp = parseInputDateToTimestamp(filters.dateEnd);
+          const hasRange = startTimestamp != null && endTimestamp != null;
+          const campaniaFilter = String(filters.campania || '').trim().toLowerCase();
+          const correoFilter = String(filters.correo || '').trim().toLowerCase();
+          const idFilter = String(filters.reservaId || '').trim().toUpperCase();
+
+          misSolicitudesState.filtered = all.filter(item => {
+            const fechaTimestamp = parseDisplayDateToTimestamp(item.fecha);
+
+            let matchesDate = true;
+            if (hasRange) {
+              matchesDate = fechaTimestamp != null && fechaTimestamp >= startTimestamp && fechaTimestamp <= endTimestamp;
+            } else if (startTimestamp != null) {
+              matchesDate = fechaTimestamp != null && isSameDayTimestamp(fechaTimestamp, startTimestamp);
+            } else if (endTimestamp != null) {
+              matchesDate = fechaTimestamp != null && isSameDayTimestamp(fechaTimestamp, endTimestamp);
+            }
+
+            if (!matchesDate) return false;
+
+            const campaniaValue = String(item.campania || '').trim().toLowerCase();
+            if (campaniaFilter && campaniaValue !== campaniaFilter) {
+              return false;
+            }
+
+            const correoValue = String(item.correo || '').trim().toLowerCase();
+            if (correoFilter && !correoValue.includes(correoFilter)) {
+              return false;
+            }
+
+            if (idFilter) {
+              const idValue = String(item.reservaId || '').toUpperCase();
+              if (!idValue.includes(idFilter)) {
+                return false;
+              }
+            }
+
+            return true;
+          });
+
+          if (resetPage) {
+            misSolicitudesState.currentPage = 1;
+          } else {
+            const totalPages = Math.max(1, Math.ceil(misSolicitudesState.filtered.length / misSolicitudesState.pageSize));
+            misSolicitudesState.currentPage = Math.min(misSolicitudesState.currentPage, totalPages);
+          }
+
+          renderMisSolicitudesPage();
+          updateMisSolicitudesPagination();
+        }
+
+        function renderMisSolicitudesPage() {
+          const tbody = misSolicitudesUI.tbody;
+          if (!tbody) return;
+
+          tbody.innerHTML = '';
+
+          const { filtered, currentPage, pageSize, all } = misSolicitudesState;
+          if (!filtered.length) {
+            const message = all.length
+              ? 'No hay solicitudes que coincidan con los filtros aplicados.'
+              : 'No hay solicitudes registradas.';
+            setMisSolicitudesPlaceholder(message);
+            updateDeleteButtonState();
+            return;
+          }
+
+          const startIndex = (currentPage - 1) * pageSize;
+          const pageItems = filtered.slice(startIndex, startIndex + pageSize);
+
+          if (!pageItems.length) {
+            misSolicitudesState.currentPage = 1;
+            renderMisSolicitudesPage();
+            return;
+          }
+
+          const columns = [
+            { key: 'reservaId', className: 'table-cell-id' },
+            { key: 'campania' },
+            { key: 'correo' },
+            { key: 'fecha', className: 'table-cell-date' },
+            { key: 'franja' },
+            { key: 'horas' },
+            { key: 'tipo', className: 'table-cell-tag' },
+            { key: 'estadoSolicitud', className: 'table-cell-tag' }
+          ];
+
+          pageItems.forEach(solicitud => {
+            const row = document.createElement('tr');
+
+            columns.forEach(column => {
+              const cell = document.createElement('td');
+              let rawValue;
+
+              if (column.key === 'reservaId') {
+                rawValue = solicitud && (
+                  solicitud.reservaId ||
+                  solicitud.idReserva ||
+                  solicitud.reservaID ||
+                  solicitud.id ||
+                  ''
+                );
+              } else if (solicitud && Object.prototype.hasOwnProperty.call(solicitud, column.key)) {
+                rawValue = solicitud[column.key];
+              } else {
+                rawValue = '';
+              }
+
+              const value = (() => {
+                if (rawValue === null || rawValue === undefined) return '—';
+                const text = String(rawValue).trim();
+                return text ? text : '—';
+              })();
+
+              cell.textContent = value;
+              if (column.className) {
+                cell.classList.add(column.className);
+              }
+              row.appendChild(cell);
+            });
+
+            const actionCell = document.createElement('td');
+            const estadoRaw = solicitud && solicitud.estadoSolicitud != null ? String(solicitud.estadoSolicitud) : '';
+            const estado = estadoRaw.trim();
+            const estadoNormalized = estado.toLowerCase();
+            const keyValue = solicitud && solicitud.key != null ? String(solicitud.key).trim() : '';
+            const reservaIdValue = solicitud && solicitud.reservaId != null ? String(solicitud.reservaId).trim() : '';
+            const identifierValue = keyValue || reservaIdValue;
+
+            let hasAction = false;
+            const actionsWrapper = document.createElement('div');
+            actionsWrapper.className = 'table-actions';
+
+            if (accessContext.isAdmin && keyValue) {
+              const editButton = createActionButton('Editar', 'table-action-button table-action-button--secondary');
+              editButton.addEventListener('click', () => handleEditarSolicitud(solicitud));
+              actionsWrapper.appendChild(editButton);
+              hasAction = true;
+            }
+
+            if (hasAction) {
+              actionCell.appendChild(actionsWrapper);
+            } else if (estadoNormalized === 'vencido') {
+              actionCell.textContent = 'No disponible';
+              actionCell.title = 'No puedes gestionar solicitudes vencidas.';
+            } else {
+              actionCell.textContent = '—';
+            }
+
+            row.appendChild(actionCell);
+
+            const checkboxCell = document.createElement('td');
+            checkboxCell.className = 'table-cell-checkbox';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'solicitud-checkbox';
+            if (identifierValue) {
+              checkbox.dataset.key = identifierValue;
+            }
+            if (reservaIdValue) {
+              checkbox.dataset.reservaId = reservaIdValue;
+            }
+            const disabledByIdentifier = !identifierValue;
+            const disabledByEstado = !accessContext.isAdmin && (estadoNormalized !== 'vigente' && estadoNormalized !== '');
+            checkbox.disabled = disabledByIdentifier || disabledByEstado;
+            if (disabledByIdentifier) {
+              checkbox.title = 'No se puede eliminar esta solicitud porque falta un identificador válido.';
+            } else if (disabledByEstado) {
+              checkbox.title = 'Solo puedes eliminar solicitudes vigentes.';
+            }
+            checkboxCell.appendChild(checkbox);
+            row.appendChild(checkboxCell);
+
+            tbody.appendChild(row);
+          });
+
+          updateDeleteButtonState();
+        }
+
+        function updateMisSolicitudesPagination() {
+          const pagination = misSolicitudesUI.pagination;
+          if (!pagination || !pagination.container || !pagination.info) return;
+
+          const totalItems = misSolicitudesState.filtered.length;
+          const totalPages = totalItems ? Math.ceil(totalItems / misSolicitudesState.pageSize) : 0;
+
+          if (!totalPages) {
+            pagination.container.hidden = true;
+            pagination.info.textContent = 'Página 0 de 0';
+            if (pagination.prev) pagination.prev.disabled = true;
+            if (pagination.next) pagination.next.disabled = true;
+            return;
+          }
+
+          pagination.container.hidden = totalPages <= 1;
+          pagination.info.textContent = `Página ${misSolicitudesState.currentPage} de ${totalPages}`;
+
+          if (pagination.prev) {
+            pagination.prev.disabled = misSolicitudesState.currentPage <= 1;
+          }
+
+          if (pagination.next) {
+            pagination.next.disabled = misSolicitudesState.currentPage >= totalPages;
+          }
+        }
+
+        function changeMisSolicitudesPage(offset) {
+          const targetPage = misSolicitudesState.currentPage + offset;
+          goToMisSolicitudesPage(targetPage);
+        }
+
+        function goToMisSolicitudesPage(page) {
+          const totalPages = misSolicitudesState.filtered.length
+            ? Math.ceil(misSolicitudesState.filtered.length / misSolicitudesState.pageSize)
+            : 0;
+
+          if (!totalPages) {
+            misSolicitudesState.currentPage = 1;
+            renderMisSolicitudesPage();
+            updateMisSolicitudesPagination();
+            return;
+          }
+
+          const normalizedPage = Math.min(Math.max(page, 1), totalPages);
+          misSolicitudesState.currentPage = normalizedPage;
+          renderMisSolicitudesPage();
+          updateMisSolicitudesPagination();
+        }
+
+        function parseDisplayDateToTimestamp(value) {
+          if (!value) return null;
+          const parts = String(value).split('/');
+          let date;
+          if (parts.length === 3) {
+            const [dd, mm, yyyy] = parts.map(part => Number(part));
+            if (!dd || !mm || !yyyy) return null;
+            date = new Date(yyyy, mm - 1, dd);
+          } else {
+            const parsed = new Date(value);
+            if (Number.isNaN(parsed.getTime())) return null;
+            date = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+          }
+          return Number.isNaN(date.getTime()) ? null : date.getTime();
+        }
+
+        function parseInputDateToTimestamp(value) {
+          if (!value) return null;
+          const date = new Date(`${value}T00:00:00`);
+          return Number.isNaN(date.getTime()) ? null : date.getTime();
+        }
+
+        function isSameDayTimestamp(a, b) {
+          if (a == null || b == null) return false;
+          const dateA = new Date(a);
+          const dateB = new Date(b);
+          return (
+            dateA.getFullYear() === dateB.getFullYear() &&
+            dateA.getMonth() === dateB.getMonth() &&
+            dateA.getDate() === dateB.getDate()
+          );
+        }
+
+        function createActionButton(label, className = 'table-action-button') {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = label;
+          button.className = className;
+          return button;
+        }
+
+        function handleEditarSolicitud(solicitud) {
+          if (!solicitud) return;
+          openEditSolicitudModal(solicitud);
+        }
+
+        function openEditSolicitudModal(solicitud) {
+          if (!editModal.overlay || !editModal.form) return;
+          editModalState.solicitud = solicitud;
+          editModalState.submitting = false;
+
+          const prepared = prepareSolicitudForEdit(solicitud);
+          populateEditSolicitudForm(prepared, solicitud);
+          showEditModalError('');
+
+          if (editModal.buttons.delete) {
+            const estado = String((solicitud && solicitud.estadoSolicitud) || '').trim().toLowerCase();
+            const canDelete = accessContext.isAdmin && (estado === 'vigente' || estado === 'vencido');
+            editModal.buttons.delete.hidden = !canDelete;
+            editModal.buttons.delete.disabled = false;
+            if (canDelete) {
+              editModal.buttons.delete.setAttribute('aria-label', 'Eliminar solicitud');
+            }
+          }
+
+          editModal.overlay.hidden = false;
+          editModal.overlay.style.display = 'flex';
+          if (editModal.fields.campania) {
+            editModal.fields.campania.focus();
+          }
+        }
+
+        function closeEditSolicitudModal() {
+          if (!editModal.overlay || !editModal.form) return;
+          editModal.form.reset();
+          setEditModalSubmitting(false);
+          showEditModalError('');
+          if (editModal.buttons.delete) {
+            editModal.buttons.delete.hidden = true;
+            editModal.buttons.delete.disabled = false;
+            editModal.buttons.delete.setAttribute('aria-label', 'Eliminar solicitud');
+          }
+          editModal.overlay.hidden = true;
+          editModal.overlay.style.display = 'none';
+          editModalState.solicitud = null;
+        }
+
+        function populateEditSolicitudForm(values, solicitud) {
+          if (!editModal.form || !values) return;
+          const { fields } = editModal;
+
+          if (fields.key) fields.key.value = solicitud && solicitud.key ? String(solicitud.key).trim() : '';
+          if (fields.tipo) fields.tipo.value = values.tipo || (solicitud && solicitud.tipo) || '';
+          if (fields.correo) fields.correo.value = values.correo || (solicitud && solicitud.correo) || '';
+          if (fields.campania) fields.campania.value = values.campania || '';
+          if (fields.fecha) fields.fecha.value = values.fecha || '';
+          if (fields.horaInicio) fields.horaInicio.value = values.horaInicio || '';
+          if (fields.horas) fields.horas.value = values.horas || '';
+        }
+
+        function prepareSolicitudForEdit(solicitud) {
+          const tipo = solicitud && solicitud.tipo ? String(solicitud.tipo).trim() : '';
+          const correo = solicitud && solicitud.correo ? String(solicitud.correo).trim() : '';
+          const campania = solicitud && solicitud.campania ? String(solicitud.campania).trim() : '';
+          const fecha = formatFechaToInput(solicitud && solicitud.fecha ? String(solicitud.fecha) : '');
+          const horaInicio = extractHoraInicio(solicitud);
+          const horas = formatHorasValue(solicitud, horaInicio);
+
+          return {
+            tipo,
+            correo,
+            campania,
+            fecha,
+            horaInicio,
+            horas
+          };
+        }
+
+        function formatFechaToInput(fechaStr) {
+          const value = String(fechaStr || '').trim();
+          if (!value) return '';
+          const parts = value.split('/');
+          if (parts.length === 3) {
+            const [dd, mm, yyyy] = parts;
+            const day = dd.padStart(2, '0');
+            const month = mm.padStart(2, '0');
+            const year = yyyy.length === 2 ? `20${yyyy}` : yyyy.padStart(4, '0');
+            return `${year}-${month}-${day}`;
+          }
+          const parsed = new Date(value);
+          if (!Number.isNaN(parsed.getTime())) {
+            const day = String(parsed.getDate()).padStart(2, '0');
+            const month = String(parsed.getMonth() + 1).padStart(2, '0');
+            const year = String(parsed.getFullYear());
+            return `${year}-${month}-${day}`;
+          }
+          return '';
+        }
+
+        function extractHoraInicio(solicitud) {
+          const franja = solicitud && solicitud.franja ? String(solicitud.franja) : '';
+          const cleaned = franja.replace(/\s+/g, '');
+          const parts = cleaned.split('-');
+          if (parts.length === 2 && parts[0].includes(':')) {
+            return normalizeTime(parts[0]);
+          }
+
+          const horario = solicitud && solicitud.horario ? String(solicitud.horario) : '';
+          const horarioParts = horario.replace(/\s+/g, '').split('-');
+          if (horarioParts.length === 2 && horarioParts[0].includes(':')) {
+            return normalizeTime(horarioParts[0]);
+          }
+
+          return '';
+        }
+
+        function normalizeTime(timeStr) {
+          const match = String(timeStr || '').match(/^(\d{1,2}):(\d{2})$/);
+          if (!match) return '';
+          const hours = String(match[1]).padStart(2, '0');
+          const minutes = match[2];
+          return `${hours}:${minutes}`;
+        }
+
+        function formatHorasValue(solicitud, horaInicio) {
+          const raw = solicitud && solicitud.horas != null ? String(solicitud.horas) : '';
+          const parsed = parseFloat(raw.replace(',', '.'));
+          if (!Number.isNaN(parsed) && parsed > 0) {
+            return parsed;
+          }
+
+          const franja = solicitud && solicitud.franja ? String(solicitud.franja) : '';
+          const duration = computeDurationFromFranja(franja);
+          if (duration > 0) {
+            return duration;
+          }
+
+          if (horaInicio) {
+            return 1;
+          }
+          return '';
+        }
+
+        function computeDurationFromFranja(franja) {
+          const value = String(franja || '').replace(/\s+/g, '');
+          const parts = value.split('-');
+          if (parts.length !== 2) return 0;
+          const startMinutes = parseTimeToMinutes(parts[0]);
+          const endMinutes = parseTimeToMinutes(parts[1]);
+          if (startMinutes == null || endMinutes == null || endMinutes <= startMinutes) {
+            return 0;
+          }
+          return (endMinutes - startMinutes) / 60;
+        }
+
+        function parseTimeToMinutes(value) {
+          const match = String(value || '').match(/^(\d{1,2}):(\d{2})$/);
+          if (!match) return null;
+          const hours = Number(match[1]);
+          const minutes = Number(match[2]);
+          if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+          return hours * 60 + minutes;
+        }
+
+        function buildFranjaFromValues(startTime, horas) {
+          const startMinutes = parseTimeToMinutes(startTime);
+          const totalMinutes = Math.round(Number(horas) * 60);
+          if (startMinutes == null || !Number.isFinite(totalMinutes) || totalMinutes <= 0) {
+            return null;
+          }
+          const endMinutes = startMinutes + totalMinutes;
+          if (endMinutes > 24 * 60) {
+            return null;
+          }
+          return `${formatMinutesAsTime(startMinutes)}-${formatMinutesAsTime(endMinutes)}`;
+        }
+
+        function formatMinutesAsTime(totalMinutes) {
+          const hours = Math.floor(totalMinutes / 60);
+          const minutes = totalMinutes % 60;
+          return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        }
+
+        function showEditModalError(message) {
+          if (!editModal.error) return;
+          if (message) {
+            editModal.error.textContent = message;
+            editModal.error.hidden = false;
+          } else {
+            editModal.error.textContent = '';
+            editModal.error.hidden = true;
+          }
+        }
+
+        function setEditModalSubmitting(isSubmitting) {
+          editModalState.submitting = Boolean(isSubmitting);
+          if (editModal.buttons.save) {
+            editModal.buttons.save.disabled = editModalState.submitting;
+          }
+        }
+
+        function submitEditSolicitud() {
+          if (!editModal.form || editModalState.submitting) return;
+          const { fields } = editModal;
+          const campania = fields.campania ? fields.campania.value.trim() : '';
+          const fecha = fields.fecha ? fields.fecha.value : '';
+          const horaInicio = fields.horaInicio ? fields.horaInicio.value : '';
+          const horasRaw = fields.horas ? fields.horas.value : '';
+          const tipo = fields.tipo ? fields.tipo.value.trim() : '';
+          const correo = fields.correo ? fields.correo.value.trim() : '';
+
+          if (!campania || !fecha || !horaInicio || !horasRaw) {
+            showEditModalError('Completa todos los campos obligatorios.');
+            return;
+          }
+
+          const horasValue = parseFloat(String(horasRaw).replace(',', '.'));
+          if (!Number.isFinite(horasValue) || horasValue <= 0) {
+            showEditModalError('Introduce un número de horas válido.');
+            return;
+          }
+
+          const startDate = new Date(`${fecha}T${horaInicio}:00`);
+          if (Number.isNaN(startDate.getTime())) {
+            showEditModalError('La fecha u hora seleccionada no es válida.');
+            return;
+          }
+
+          const franja = buildFranjaFromValues(horaInicio, horasValue);
+          if (!franja) {
+            showEditModalError('No se pudo calcular la franja horaria con los datos indicados.');
+            return;
+          }
+
+          const formattedDate = `${String(startDate.getDate()).padStart(2, '0')}/${String(startDate.getMonth() + 1).padStart(2, '0')}/${startDate.getFullYear()}`;
+          const currentSolicitud = editModalState.solicitud || {};
+          const key = currentSolicitud.key || (fields.key ? fields.key.value : '');
+          if (!key) {
+            showEditModalError('No se pudo identificar la solicitud original.');
+            return;
+          }
+
+          const payload = {
+            key,
+            campania,
+            tipo,
+            correo,
+            fecha,
+            fechaDisplay: formattedDate,
+            horaInicio,
+            horas: horasValue,
+            franja,
+            estadoSolicitud: currentSolicitud.estadoSolicitud || ''
+          };
+
+          showEditModalError('');
+          setEditModalSubmitting(true);
+
+          const finalize = () => {
+            setEditModalSubmitting(false);
+          };
+
+          const handleSuccess = (response) => {
+            finalize();
+            closeEditSolicitudModal();
+            const showSuccessMessage = typeof showSuccess === 'function'
+              ? showSuccess('Los cambios se guardaron correctamente.', 'Solicitud actualizada')
+              : Promise.resolve(alert('Solicitud actualizada correctamente.'));
+
+            Promise.resolve(showSuccessMessage).finally(() => {
+              loadMisSolicitudes();
+            });
+          };
+
+          const handleFailure = (error) => {
+            console.error('No se pudo actualizar la solicitud:', error);
+            finalize();
+            const message = error && error.message ? error.message : 'No se pudo actualizar la solicitud. Inténtalo de nuevo.';
+            showEditModalError(message);
+          };
+
+          const serverPayload = {
+            key: payload.key,
+            campania: payload.campania,
+            tipo: payload.tipo,
+            correo: payload.correo,
+            fechaISO: startDate.toISOString(),
+            fechaDisplay: payload.fechaDisplay,
+            horaInicio: payload.horaInicio,
+            horas: payload.horas,
+            franja: payload.franja,
+            estadoSolicitud: payload.estadoSolicitud
+          };
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(handleSuccess)
+              .withFailureHandler(handleFailure)
+              .actualizarSolicitud(serverPayload);
+          } else {
+            setTimeout(() => {
+              handleFailure(new Error('Runtime local sin Google Apps Script.'));
+            }, 0);
+          }
+        }
+
+        function setupEditSolicitudModal() {
+          if (!editModal.overlay || !editModal.form) return;
+
+          const onCancel = (event) => {
+            event.preventDefault();
+            closeEditSolicitudModal();
+          };
+
+          editModal.form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            submitEditSolicitud();
+          });
+
+          if (editModal.buttons.cancel) {
+            editModal.buttons.cancel.addEventListener('click', onCancel);
+          }
+
+          if (editModal.buttons.close) {
+            editModal.buttons.close.addEventListener('click', onCancel);
+          }
+
+          if (editModal.buttons.delete) {
+            editModal.buttons.delete.addEventListener('click', handleEliminarSolicitudDesdeModal);
+          }
+
+          editModal.overlay.addEventListener('click', event => {
+            if (event.target === editModal.overlay) {
+              closeEditSolicitudModal();
+            }
+          });
+
+          document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && editModal.overlay && !editModal.overlay.hidden) {
+              closeEditSolicitudModal();
+            }
+          });
+        }
+
+        function buildDeleteConfirmMessage(solicitud) {
+          if (!solicitud || typeof solicitud !== 'object') {
+            return '¿Seguro que quieres eliminar esta solicitud? Esta acción no se puede deshacer.';
+          }
+
+          const fragments = [];
+          const campania = solicitud.campania || solicitud.campaña || '';
+          const fecha = solicitud.fechaDisplay || solicitud.fecha || solicitud.fechaSolicitud || '';
+          const franja = solicitud.franja || solicitud.horario || '';
+
+          if (campania) {
+            fragments.push(String(campania).trim());
+          }
+          if (fecha) {
+            fragments.push(String(fecha).trim());
+          }
+          if (franja) {
+            fragments.push(String(franja).trim());
+          }
+
+          if (!fragments.length) {
+            return '¿Seguro que quieres eliminar esta solicitud? Esta acción no se puede deshacer.';
+          }
+
+          return `¿Seguro que quieres eliminar la solicitud para ${fragments.join(' · ')}? Esta acción no se puede deshacer.`;
+        }
+
+        function showDeleteSolicitudConfirm(options = {}) {
+          const overlay = deleteConfirmModal.overlay;
+          const modal = deleteConfirmModal.modal;
+          const confirmButton = deleteConfirmModal.confirm;
+          const cancelButton = deleteConfirmModal.cancel;
+
+          const resolvedMessage = options.message || '¿Seguro que quieres eliminar esta solicitud? Esta acción no se puede deshacer.';
+          const resolvedTitle = options.title || 'Eliminar solicitud';
+
+          if (deleteConfirmModal.title) {
+            deleteConfirmModal.title.textContent = resolvedTitle;
+          }
+          if (deleteConfirmModal.message) {
+            deleteConfirmModal.message.textContent = resolvedMessage;
+          }
+
+          if (!overlay || !confirmButton || !cancelButton || !modal) {
+            const fallback = confirm(resolvedMessage);
+            return Promise.resolve(!!fallback);
+          }
+
+          return new Promise(resolve => {
+            const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            let settled = false;
+
+            const getFocusableElements = () => {
+              const selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+              return Array.from(modal.querySelectorAll(selectors)).filter(el => {
+                if (!(el instanceof HTMLElement)) return false;
+                return !el.disabled && el.offsetParent !== null;
+              });
+            };
+
+            const cleanup = () => {
+              overlay.hidden = true;
+              overlay.style.display = 'none';
+              overlay.removeEventListener('click', handleOverlayClick);
+              confirmButton.removeEventListener('click', handleConfirm);
+              cancelButton.removeEventListener('click', handleCancel);
+              document.removeEventListener('keydown', handleKeydown, true);
+              if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                previouslyFocused.focus();
+              }
+            };
+
+            const settle = (value) => {
+              if (settled) return;
+              settled = true;
+              cleanup();
+              resolve(value);
+            };
+
+            const handleConfirm = () => settle(true);
+            const handleCancel = () => settle(false);
+            const handleOverlayClick = (event) => {
+              if (event.target === overlay) {
+                settle(false);
+              }
+            };
+
+            const handleKeydown = (event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                settle(false);
+                return;
+              }
+              if (event.key === 'Tab') {
+                const focusable = getFocusableElements();
+                if (!focusable.length) {
+                  event.preventDefault();
+                  return;
+                }
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey) {
+                  if (document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                  }
+                } else {
+                  if (document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                  }
+                }
+              }
+            };
+
+            overlay.hidden = false;
+            overlay.style.display = 'flex';
+            overlay.scrollTop = 0;
+
+            confirmButton.disabled = false;
+            cancelButton.disabled = false;
+
+            overlay.addEventListener('click', handleOverlayClick);
+            confirmButton.addEventListener('click', handleConfirm);
+            cancelButton.addEventListener('click', handleCancel);
+            document.addEventListener('keydown', handleKeydown, true);
+
+            requestAnimationFrame(() => {
+              confirmButton.focus();
+            });
+          });
+        }
+
+        function showDeleteSolicitudSuccess(options = {}) {
+          const overlay = deleteSuccessModal.overlay;
+          const modal = deleteSuccessModal.modal;
+          const acceptButton = deleteSuccessModal.accept;
+
+          const resolvedTitle = options.title || 'Solicitud eliminada';
+          const resolvedMessage = options.message || 'La solicitud se eliminó correctamente.';
+
+          if (deleteSuccessModal.title) {
+            deleteSuccessModal.title.textContent = resolvedTitle;
+          }
+          if (deleteSuccessModal.message) {
+            deleteSuccessModal.message.textContent = resolvedMessage;
+          }
+
+          if (!overlay || !acceptButton || !modal) {
+            alert(resolvedMessage);
+            return Promise.resolve();
+          }
+
+          return new Promise(resolve => {
+            const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            let settled = false;
+
+            const cleanup = () => {
+              overlay.hidden = true;
+              overlay.style.display = 'none';
+              overlay.removeEventListener('click', handleOverlayClick);
+              acceptButton.removeEventListener('click', handleAccept);
+              document.removeEventListener('keydown', handleKeydown, true);
+              if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                previouslyFocused.focus();
+              }
+            };
+
+            const settle = () => {
+              if (settled) return;
+              settled = true;
+              cleanup();
+              resolve();
+            };
+
+            const handleAccept = () => settle();
+            const handleOverlayClick = (event) => {
+              if (event.target === overlay) {
+                settle();
+              }
+            };
+            const handleKeydown = (event) => {
+              if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                settle();
+                return;
+              }
+              if (event.key === 'Tab') {
+                event.preventDefault();
+                acceptButton.focus();
+              }
+            };
+
+            overlay.hidden = false;
+            overlay.style.display = 'flex';
+            overlay.scrollTop = 0;
+
+            overlay.addEventListener('click', handleOverlayClick);
+            acceptButton.addEventListener('click', handleAccept);
+            document.addEventListener('keydown', handleKeydown, true);
+
+            requestAnimationFrame(() => {
+              acceptButton.focus();
+            });
+          });
+        }
+
+        async function confirmAndDeleteSolicitud(solicitud, callbacks = {}) {
+          if (!solicitud) return false;
+
+          const estado = String(solicitud.estadoSolicitud || '').trim().toLowerCase();
+
+          // 🔐 Permitir al admin eliminar cualquier reserva (incluso vencida)
+          if (!accessContext.isAdmin && estado !== 'vigente') {
+            alert('No puedes eliminar solicitudes vencidas.');
+            return false;
+          }
+
+          const keyValue = String(solicitud.key || '').trim();
+          if (!keyValue) {
+            alert('No se pudo identificar la solicitud.');
+            return false;
+          }
+
+          const confirmar = await showDeleteSolicitudConfirm({
+            title: 'Eliminar solicitud',
+            message: buildDeleteConfirmMessage(solicitud)
+          });
+          if (!confirmar) return false;
+
+          if (typeof callbacks.onStart === 'function') {
+            callbacks.onStart();
+          }
+
+          const finishSuccess = () => {
+            if (typeof callbacks.onSuccess === 'function') {
+              callbacks.onSuccess();
+            }
+            if (typeof callbacks.onFinally === 'function') {
+              callbacks.onFinally();
+            }
+          };
+
+          const finishFailure = (error) => {
+            if (typeof callbacks.onFailure === 'function') {
+              callbacks.onFailure(error);
+            }
+            if (typeof callbacks.onFinally === 'function') {
+              callbacks.onFinally();
+            }
+          };
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(finishSuccess)
+              .withFailureHandler(finishFailure)
+              .cancelarReserva(keyValue);
+          } else {
+            setTimeout(() => {
+              finishFailure(new Error('Runtime local sin Google Apps Script.'));
+            }, 0);
+          }
+
+          return true;
+        }
+
+        function handleEliminarSolicitud(button, solicitud) {
+          if (!button || !solicitud) return;
+
+          const originalText = button.textContent;
+
+          confirmAndDeleteSolicitud(solicitud, {
+            onStart: () => {
+              button.disabled = true;
+              button.textContent = 'Eliminando…';
+            },
+            onSuccess: () => {
+              loadMisSolicitudes();
+              showDeleteSolicitudSuccess({
+                title: 'Solicitud eliminada',
+                message: 'La solicitud se eliminó correctamente.'
+              });
+            },
+            onFailure: (error) => {
+              console.error('No se pudo eliminar la solicitud:', error);
+              alert('No se pudo eliminar la solicitud. Inténtalo de nuevo más tarde.');
+            },
+            onFinally: () => {
+              button.disabled = false;
+              button.textContent = originalText;
+            }
+          });
+        }
+
+        function handleEliminarSolicitudDesdeModal() {
+          const button = editModal.buttons && editModal.buttons.delete;
+          const solicitud = editModalState && editModalState.solicitud;
+          if (!button || !solicitud || button.hidden) return;
+
+          const originalAria = button.getAttribute('aria-label') || 'Eliminar solicitud';
+
+          confirmAndDeleteSolicitud(solicitud, {
+            onStart: () => {
+              button.disabled = true;
+              button.setAttribute('aria-label', 'Eliminando solicitud…');
+            },
+            onSuccess: () => {
+              closeEditSolicitudModal();
+              loadMisSolicitudes();
+              showDeleteSolicitudSuccess({
+                title: 'Solicitud eliminada',
+                message: 'La solicitud se eliminó correctamente.'
+              });
+            },
+            onFailure: (error) => {
+              console.error('No se pudo eliminar la solicitud:', error);
+              alert('No se pudo eliminar la solicitud. Inténtalo de nuevo más tarde.');
+            },
+            onFinally: () => {
+              button.disabled = false;
+              button.setAttribute('aria-label', originalAria);
+            }
+          });
+        }
+
+        function setMisSolicitudesPlaceholder(message) {
+          const tbody = document.getElementById('misSolicitudesBody');
+          if (!tbody) return;
+
+          tbody.innerHTML = '';
+          const row = document.createElement('tr');
+          row.className = 'table-placeholder';
+          const cell = document.createElement('td');
+          cell.colSpan = 10;
+          cell.textContent = message;
+          row.appendChild(cell);
+          tbody.appendChild(row);
+
+          const pagination = misSolicitudesUI.pagination;
+          if (pagination && pagination.container) {
+            pagination.container.hidden = true;
+          }
+        }
+
+        function setupMultipleDelete() {
+          if (!misSolicitudesUI.tbody || !misSolicitudesUI.selectAllCheckbox || !misSolicitudesUI.deleteSelectedButton) return;
+
+          misSolicitudesUI.tbody.addEventListener('change', event => {
+            if (event.target.matches('.solicitud-checkbox')) {
+              updateDeleteButtonState();
+            }
+          });
+
+          misSolicitudesUI.selectAllCheckbox.addEventListener('change', () => {
+            const checkboxes = misSolicitudesUI.tbody.querySelectorAll('.solicitud-checkbox');
+            checkboxes.forEach(checkbox => {
+              if (checkbox.disabled) {
+                checkbox.checked = false;
+                return;
+              }
+              checkbox.checked = misSolicitudesUI.selectAllCheckbox.checked;
+            });
+            updateDeleteButtonState();
+          });
+
+          misSolicitudesUI.deleteSelectedButton.addEventListener('click', handleDeleteSelected);
+        }
+
+        function updateDeleteButtonState() {
+          const selectedCheckboxes = Array
+            .from(misSolicitudesUI.tbody.querySelectorAll('.solicitud-checkbox:checked'))
+            .filter(cb => !cb.disabled);
+          const count = selectedCheckboxes.length;
+
+          if (count > 0) {
+            misSolicitudesUI.deleteSelectedButton.disabled = false;
+            misSolicitudesUI.deleteSelectedButton.textContent = `Eliminar (${count})`;
+            misSolicitudesUI.deleteSelectedButton.title = 'Eliminar solicitudes seleccionadas';
+          } else {
+            misSolicitudesUI.deleteSelectedButton.disabled = true;
+            misSolicitudesUI.deleteSelectedButton.textContent = 'Eliminar';
+            misSolicitudesUI.deleteSelectedButton.title = 'Selecciona al menos una solicitud vigente para eliminarla';
+          }
+
+          const selectableCheckboxes = Array
+            .from(misSolicitudesUI.tbody.querySelectorAll('.solicitud-checkbox'))
+            .filter(cb => !cb.disabled);
+          if (misSolicitudesUI.selectAllCheckbox) {
+            const hasSelectable = selectableCheckboxes.length > 0;
+            misSolicitudesUI.selectAllCheckbox.disabled = !hasSelectable;
+            if (!hasSelectable) {
+              misSolicitudesUI.selectAllCheckbox.checked = false;
+              misSolicitudesUI.selectAllCheckbox.indeterminate = false;
+              misSolicitudesUI.deleteSelectedButton.title = 'Solo puedes eliminar solicitudes vigentes.';
+            } else {
+              misSolicitudesUI.selectAllCheckbox.checked = count > 0 && count === selectableCheckboxes.length;
+              misSolicitudesUI.selectAllCheckbox.indeterminate = count > 0 && count < selectableCheckboxes.length;
+            }
+          }
+        }
+
+        async function handleDeleteSelected() {
+          const selectedCheckboxes = Array
+            .from(misSolicitudesUI.tbody.querySelectorAll('.solicitud-checkbox:checked'))
+            .filter(cb => !cb.disabled);
+          const identifiers = selectedCheckboxes
+            .map(cb => {
+              const primary = (cb.dataset.key || '').trim();
+              if (primary) return primary;
+              const fallback = (cb.dataset.reservaId || '').trim();
+              return fallback || null;
+            })
+            .filter(Boolean);
+          const keysToDelete = Array.from(new Set(identifiers));
+
+          if (keysToDelete.length === 0) {
+            alert('No se pudieron identificar las solicitudes seleccionadas para eliminar.');
+            updateDeleteButtonState();
+            return;
+          }
+
+          const confirmed = await showDeleteMultipleConfirm(keysToDelete.length);
+          if (!confirmed) return;
+
+          misSolicitudesUI.deleteSelectedButton.disabled = true;
+          misSolicitudesUI.deleteSelectedButton.textContent = 'Eliminando…';
+
+          google.script.run
+            .withSuccessHandler(() => {
+              showDeleteMultipleSuccess(keysToDelete.length);
+              selectedCheckboxes.forEach(cb => {
+                cb.checked = false;
+              });
+              if (misSolicitudesUI.selectAllCheckbox) {
+                misSolicitudesUI.selectAllCheckbox.checked = false;
+                misSolicitudesUI.selectAllCheckbox.indeterminate = false;
+              }
+              misSolicitudesUI.deleteSelectedButton.disabled = true;
+              misSolicitudesUI.deleteSelectedButton.textContent = 'Eliminar';
+              updateDeleteButtonState();
+              loadMisSolicitudes();
+            })
+            .withFailureHandler(err => {
+              alert('Error al eliminar las solicitudes: ' + err.message);
+              updateDeleteButtonState();
+            })
+            .cancelarMultiplesReservas(keysToDelete);
+        }
+
+        function showDeleteMultipleConfirm(count) {
+          return new Promise(resolve => {
+            const overlay = deleteMultipleConfirmModal.overlay;
+            const message = deleteMultipleConfirmModal.message;
+            const confirmButton = deleteMultipleConfirmModal.confirm;
+            const cancelButton = deleteMultipleConfirmModal.cancel;
+
+            if (!overlay || !confirmButton || !cancelButton || !message) {
+              const fallback = window.confirm(`¿Seguro que quieres eliminar ${count} registros?`);
+              resolve(fallback);
+              return;
+            }
+
+            message.innerHTML = `¿Seguro que quieres eliminar <b>${count}</b> registros?`;
+            overlay.hidden = false;
+            overlay.style.display = 'flex';
+            overlay.scrollTop = 0;
+
+            const cleanup = () => {
+              overlay.hidden = true;
+              overlay.style.display = 'none';
+              overlay.removeEventListener('click', handleOverlayClick);
+              confirmButton.removeEventListener('click', handleConfirm);
+              cancelButton.removeEventListener('click', handleCancel);
+              document.removeEventListener('keydown', handleKeydown, true);
+            };
+
+            const handleConfirm = () => {
+              cleanup();
+              resolve(true);
+            };
+
+            const handleCancel = () => {
+              cleanup();
+              resolve(false);
+            };
+
+            const handleOverlayClick = (event) => {
+              if (event.target === overlay) {
+                cleanup();
+                resolve(false);
+              }
+            };
+
+            const handleKeydown = (event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                cleanup();
+                resolve(false);
+              }
+            };
+
+            confirmButton.disabled = false;
+            cancelButton.disabled = false;
+
+            overlay.addEventListener('click', handleOverlayClick);
+            confirmButton.addEventListener('click', handleConfirm);
+            cancelButton.addEventListener('click', handleCancel);
+            document.addEventListener('keydown', handleKeydown, true);
+
+            requestAnimationFrame(() => {
+              confirmButton.focus();
+            });
+          });
+        }
+
+        function showDeleteMultipleSuccess(count) {
+          const overlay = deleteMultipleSuccessModal.overlay;
+          const message = deleteMultipleSuccessModal.message;
+          const acceptButton = deleteMultipleSuccessModal.accept;
+
+          if (!overlay || !message || !acceptButton) {
+            alert(`Se han eliminado correctamente ${count} registros.`);
+            return;
+          }
+
+          message.innerHTML = `Se han eliminado correctamente <b>${count}</b> registros.`;
+          overlay.hidden = false;
+          overlay.style.display = 'flex';
+          overlay.scrollTop = 0;
+
+          const cleanup = () => {
+            overlay.hidden = true;
+            overlay.style.display = 'none';
+            acceptButton.removeEventListener('click', handleAccept);
+            overlay.removeEventListener('click', handleOverlayClick);
+            document.removeEventListener('keydown', handleKeydown, true);
+          };
+
+          const handleAccept = () => {
+            cleanup();
+          };
+
+          const handleOverlayClick = (event) => {
+            if (event.target === overlay) {
+              cleanup();
+            }
+          };
+
+          const handleKeydown = (event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              cleanup();
+            }
+          };
+
+          acceptButton.addEventListener('click', handleAccept);
+          overlay.addEventListener('click', handleOverlayClick);
+          document.addEventListener('keydown', handleKeydown, true);
+
+          requestAnimationFrame(() => {
+            acceptButton.focus();
+          });
+        }
+
+        navButtons.forEach(btn => {
+          btn.addEventListener('click', () => {
+            const target = btn.dataset.target;
+            if (!canAccessSection(target)) {
+              return;
+            }
+            const calendarMode = btn.dataset.calendarMode || null;
+            activateSection(target, { button: btn, calendarMode });
+          });
+        });
+
+        activateSection('inicio');
+      });
+    </script>
+  </body>
+</html>
+);
+
+        activateSection('inicio');
+      });
+    </script>
+  </body>
+</html>

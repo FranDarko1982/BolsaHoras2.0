@@ -1,0 +1,79 @@
+:root {
+  --rosa-intelcia: #E6007E;
+  --turquesa-intelcia: #00BCD4;
+  --gris-suave: #F4F7FA;
+  --texto-principal: #2C2C2C;
+}
+
+/* Fondo general */
+body {
+  background: var(--gris-suave);
+}
+
+/* Cabecera */
+.header {
+  background: var(--gris-suave);
+}
+.header-title {
+  color: var(--texto-principal);
+}
+
+/* Botones principal */
+#btnLibrarHeader {
+  background: var(--rosa-intelcia);
+  box-shadow: 0 2px 8px rgba(230, 0, 126, 0.17);
+  transition: filter .15s;
+}
+#btnLibrarHeader:hover {
+  filter: brightness(1.07);
+}
+
+#btnMisReservas {
+  background: var(--turquesa-intelcia);
+  box-shadow: 0 2px 8px rgba(0, 188, 212, 0.17);
+  transition: filter .15s;
+}
+#btnMisReservas:hover {
+  filter: brightness(1.07);
+}
+
+/* FullCalendar: horas para trabajar */
+.fc-event-horas {
+  background: var(--rosa-intelcia) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  color: #fff !important;
+}
+
+/* FullCalendar: horas para librar */
+.fc-event-horas-librar {
+  background: var(--turquesa-intelcia) !important;
+}
+
+/* Botones "Hoy" / botones de vista */
+.fc-button {
+  background: var(--gris-suave) !important;
+  color: var(--texto-principal) !important;
+  border: 2px solid var(--rosa-intelcia) !important;
+  border-radius: 8px !important;
+  font-weight: bold !important;
+}
+.fc-button:hover {
+  filter: brightness(1.05);
+}
+.fc-button.fc-today-button {
+  background: var(--rosa-intelcia) !important;
+  color: #fff !important;
+}
+
+/* Leyenda */
+.leyenda-color {
+  background: var(--rosa-intelcia);
+}
+.leyenda-color.fuera-horario {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #c8c8c8 0 8px,
+    #e8e8e8 8px 16px
+  );
+}

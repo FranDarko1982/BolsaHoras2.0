@@ -1,0 +1,698 @@
+<section id="section-calendario" class="app-section app-section--calendar" data-section="calendario">
+  <div class="calendar-shell">
+    <!-- Main Container for alignment and centering -->
+    <div class="main-container">
+      <!-- Contenedor de tabla de solicitudes -->
+      <div id="misReservasWrap">
+        <div id="misReservasTabla"></div>
+      </div>
+      <!-- Selector de campaña TRABAJAR -->
+      <div id="selector">
+        <label>Campaña:
+          <select id="campanias"></select>
+        </label>
+      </div>
+      <!-- Calendario TRABAJAR + leyenda -->
+      <div class="calendar-wrap" id="calendarWrap">
+        <div id="calendar"></div>
+      </div>
+      <!-- Selector de campaña LIBRAR -->
+      <div id="selectorLibrar" style="display:none;">
+        <label>Campaña:
+          <select id="campaniasLibrar"></select>
+        </label>
+      </div>
+      <!-- Calendario LIBRAR + leyenda -->
+      <div class="calendar-wrap" id="calendarWrapLibrar" style="display:none;">
+        <div id="calendarLibrar"></div>
+      </div>
+    </div>
+    <!-- ——— Overlay loader ——— -->
+    <div id="loader-overlay">
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div class="spinner"></div>
+        <div style="color:#bc348b;font-weight:bold;font-size:1.1em;">Cargando…</div>
+      </div>
+    </div>
+    <!-- ——— Modal de confirmación ——— -->
+    <div id="confirm-overlay">
+      <div id="confirm-modal">
+        <h3>Registrar solicitud</h3>
+        <div id="confirm-dynamic"></div>
+        <p id="confirm-text"></p>
+        <button id="btn-confirm" class="btn">Aceptar</button>
+        <button id="btn-cancel"  class="btn">Cancelar</button>
+      </div>
+    </div>
+    <!-- ——— Modal de éxito ——— -->
+    <div id="success-overlay">
+      <div id="success-modal">
+        <h3>Solicitud registrada correctamente</h3>
+        <p id="success-text"></p>
+        <button id="btn-success-ok">Aceptar</button>
+      </div>
+    </div>
+    <script>
+      // Variables globales para guardar selección de campaña y fecha (trabajar y librar)
+      let selectedCampania = null;
+      let selectedDate = null;
+      let selectedCampaniaLibrar = null;
+      let selectedDateLibrar = null;
+      // Botón principal de mis solicitudes (legacy header)
+      const headerMisReservas = document.getElementById('btnMisReservas');
+      if (headerMisReservas) {
+        headerMisReservas.onclick = function () {
+          document.getElementById('selector').style.display = 'none';
+          document.getElementById('calendarWrap').style.display = 'none';
+          document.getElementById('selectorLibrar').style.display = 'none';
+          document.getElementById('calendarWrapLibrar').style.display = 'none';
+          showLoader(true);
+          google.script.run.withSuccessHandler(misReservas => {
+            showLoader(false);
+            mostrarMisReservas(misReservas);
+          }).getMisReservas();
+        };
+      }
+
+      // Botón fijo de librar en el header (legacy header)
+      const headerLibrarButton = document.getElementById('btnLibrarHeader');
+      if (headerLibrarButton) {
+        headerLibrarButton.onclick = function () {
+          mostrarCalendarioLibrar();
+        };
+      }
+
+      // Mostrar tabla de solicitudes (trabajar y librar)
+      function mostrarMisReservas(reservas) {
+        const wrap = document.getElementById('misReservasWrap');
+        const cont = document.getElementById('misReservasTabla');
+        let volverBtn = `<button id="volverCalendario" style="
+            background:#bc348b;border:none;color:#fff;font-family:'Nunito',Arial,sans-serif;
+            font-weight:700;font-size:1em;padding:10px 24px;border-radius:24px;float:right;cursor:pointer;
+            box-shadow:0 10px 24px rgba(188,52,139,0.22);margin-bottom:16px;margin-left:10px;">Volver al calendario</button>`;
+
+        if (!reservas.length) {
+          cont.innerHTML = `
+            ${volverBtn}
+            <div style="text-align:center;color:#999;font-size:1.09em;margin:22px 0;">No tienes solicitudes registradas.</div>
+            <button id="cerrarMisReservas" title="Cerrar">&times;</button>`;
+          wrap.style.display = 'flex';
+          document.getElementById('cerrarMisReservas').onclick = ()=>{ wrap.style.display = 'none'; };
+          document.getElementById('volverCalendario').onclick = () => volverCalendario();
+          return;
+        }
+        let tabla = `
+          ${volverBtn}
+          <button id="cerrarMisReservas" title="Cerrar">&times;</button>
+          <table>
+            <tr>
+              <th>Campaña</th>
+              <th>Fecha</th>
+              <th>Horas</th>
+              <th>Franja</th>
+              <th>Estado</th>
+              <th>Tipo de petición</th>
+              <th>Acción</th>
+            </tr>`;
+        reservas.forEach(r => {
+        let colorEstado = '#222';
+        if (r.estado === 'OK') colorEstado = '#00897b';
+        else if (r.estado === 'KO') colorEstado = '#c21807';
+        else if (!r.estado || r.estado.toLowerCase() === 'pendiente') colorEstado = '#888';
+
+        // Mostrar Cancelar solo si el estado es 'Vigente'
+        let btnCancelar = '';
+        if (r.estado === 'Vigente') {
+          btnCancelar = `
+            <button class="btn-cancelar"
+                    data-key="${r.key || ''}"
+                    style="background:#c21807;
+                          color:#fff;
+                          border:none;
+                          padding:6px 18px;
+                          border-radius:16px;
+                          cursor:pointer;
+                          font-weight:600;">
+              Cancelar
+            </button>`;
+        }
+
+        tabla += `<tr>
+          <td>${r.campania||''}</td>
+          <td>${r.fecha||''}</td>
+          <td>${r.horas||''}</td>
+          <td>${r.franja||''}</td>
+          <td style="font-weight:bold;color:${colorEstado};">
+            ${r.estado||'Pendiente'}
+          </td>
+          <td>${r.tipo||''}</td>
+          <td>${btnCancelar}</td>
+        </tr>`;
+      });
+
+        tabla += `</table>`;
+        cont.innerHTML = tabla;
+        wrap.style.display = 'flex';
+        document.getElementById('cerrarMisReservas').onclick = ()=>{ wrap.style.display = 'none'; };
+        document.getElementById('volverCalendario').onclick = () => volverCalendario();
+        document.querySelectorAll('.btn-cancelar').forEach(btn => {
+          btn.onclick = function() {
+            const key = btn.getAttribute('data-key');
+            showConfirmCancelar("¿Seguro que quieres cancelar esta solicitud?").then(ok => {
+              if(ok){
+                showLoader(true);
+                google.script.run.withSuccessHandler(async () => {
+                  await showSuccessCancel("Tu solicitud ha sido cancelada correctamente.");
+                  // Al refrescar la tabla, mantenemos el loader
+                  showLoader(true);
+                  google.script.run.withSuccessHandler(misReservas => {
+                    mostrarMisReservas(misReservas);
+                    showLoader(false);
+                  }).getMisReservas();
+                }).cancelarReserva(key);
+              }
+            });
+          };
+        });
+      }
+
+      // --- Calendario TRABAJAR ---
+      let calendar;
+      function init(){
+        google.script.run.withSuccessHandler(camps=>{
+          const sel=document.getElementById('campanias');
+          sel.innerHTML=camps.map(c=>`<option value="${c}">${c}</option>`).join('');
+          sel.onchange = function() {
+            selectedCampania = sel.value;
+            buildCalendar();
+          };
+          // NUEVO: comprobar si la campaña permite cobrar
+          sel.addEventListener('change', e => {
+            const campania = e.target.value;
+            google.script.run
+              .withSuccessHandler(puedeCobrar => {
+                window.puedeCobrar = puedeCobrar;
+                console.log("¿Puede cobrar?", campania, puedeCobrar);
+              })
+              .puedeCobrarCampania(campania);
+          });
+          if (camps.length) {
+            sel.value = camps[0];
+            // Comprobar permiso de COBRAR para la campaña inicial
+            google.script.run
+              .withSuccessHandler(puedeCobrar => { window.puedeCobrar = puedeCobrar; })
+              .puedeCobrarCampania(sel.value);
+            buildCalendar();
+          }
+        }).getCampanias();
+      }
+      document.addEventListener('DOMContentLoaded', init);
+
+      function buildCalendar(){
+        document.getElementById('mainTitle').textContent = 'Bolsa de horas';
+        const campania = document.getElementById('campanias').value;
+        
+        if (calendar) calendar.destroy();
+
+        
+
+        calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+          initialView: 'timeGridWeek',
+          firstDay: 1,
+          slotMinTime: '00:00:00',
+          slotMaxTime: '24:00:00',
+          slotDuration: '01:00:00',
+          locale: 'es',
+          height: 900,
+          displayEventTime: false,
+          allDaySlot: false,
+          buttonText: {
+            today: 'hoy',
+            month: 'mes',
+            week: 'semana',
+            day: 'día'
+          },
+          headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+          },
+          slotLabelContent: arg => {
+            const h = arg.date.getHours();
+            const pad = n => n < 10 ? '0'+n : n;
+            return `${pad(h)}:00-${pad((h+1)%24)}:00`;
+          },
+          events: (fetchInfo, success, failure) => {
+            showLoader(true);
+            google.script.run
+              .withSuccessHandler(ev => { success(ev); setTimeout(() => showLoader(false), 650); })
+              .withFailureHandler(err => { showLoader(false); alert(err.message); failure(err); })
+              .getHorasDisponibles(campania, fetchInfo.startStr, fetchInfo.endStr);
+          },
+          eventClick: async info => {
+            const libres = parseInt(info.event.title, 10);
+            if (!libres) { alert('Sin plazas disponibles'); return; }
+
+            const campSel = document.getElementById('campanias').value;
+            const s = info.event.start;
+            const startDay = new Date(s); startDay.setHours(0,0,0,0);
+            const endDay   = new Date(s); endDay.setHours(23,59,59,999);
+
+            showLoader(true);
+            google.script.run.withSuccessHandler(async evs => {
+              showLoader(false);
+
+              // filtrar/ordenar slots del día
+              const eventosDia = evs
+                .filter(e => new Date(e.start).toDateString() === s.toDateString())
+                .sort((a,b) => new Date(a.start) - new Date(b.start));
+
+              // calcular maxHoras
+              let maxHoras = 1;
+              let idx = eventosDia.findIndex(e => new Date(e.start).getTime() === s.getTime());
+              if (idx < 0) idx = 0;
+              for (let i = idx+1; i < eventosDia.length; i++) {
+                if (parseInt(eventosDia[i].title,10) > 0) maxHoras++;
+                else break;
+              }
+
+              // preguntar cuántas horas
+              const pad = n => n < 10 ? '0'+n : n;
+              const fecha     = s.toLocaleDateString('es-ES');
+              const franjaIni = `${pad(s.getHours())}:00`;
+              const { horas, cobrar } = await showConfirm(
+                `¿Cuántas horas quieres solicitar?\n${campSel} – ${fecha} – desde ${franjaIni}`,
+                maxHoras
+              );
+              if (!horas) return;
+
+              // revalidar
+              let ok = true;
+              for (let h = 0; h < horas; h++) {
+                const bloque = new Date(s.getTime() + h*3600000);
+                const slot   = eventosDia.find(e => new Date(e.start).getTime() === bloque.getTime());
+                if (!slot || parseInt(slot.title,10) < 1) { ok = false; break; }
+              }
+              if (!ok) {
+                alert('Alguna de las horas seleccionadas no está disponible.');
+                return;
+              }
+
+              // Determinar tipo según el modal (checkbox)
+              let tipo = cobrar ? 'Cobrar' : 'Trabajar';
+
+              // Llamada al backend según tipo
+              showLoader(true);
+              const handler = google.script.run.withSuccessHandler(async msg => {
+                showLoader(false);
+                await showSuccess(msg);
+                buildCalendar();
+              }).withFailureHandler(err => {
+                showLoader(false);
+                alert(err.message);
+              });
+
+              if (tipo === 'Cobrar') {
+                handler.reservarVariasHorasCobrar(campSel, s.toISOString(), horas);
+              } else {
+                handler.reservarVariasHoras(campSel, s.toISOString(), horas);
+              }
+
+            }).getHorasDisponibles(campSel, startDay.toISOString(), endDay.toISOString());
+          }
+        });
+
+        calendar.render();
+        // Añadir botón refrescar a la derecha del selector de campaña
+        setTimeout(() => {
+          const selDiv = document.getElementById('selector');
+          if (selDiv && !document.getElementById('btnRefrescarTrabajar')) {
+            let btn = document.createElement('button');
+            btn.id = 'btnRefrescarTrabajar';
+            btn.title = 'Refrescar calendario';
+            btn.innerHTML = '&#x21bb;';
+            btn.style.marginLeft = '16px';
+            btn.style.background = '#f8f8fa';
+            btn.style.border = '2px solid #bc348b';
+            btn.style.borderRadius = '50%';
+            btn.style.padding = '7px 12px';
+            btn.style.cursor = 'pointer';
+            btn.style.fontSize = '1.1em';
+            btn.style.boxShadow = '0 1px 8px #00897b13';
+            btn.onclick = buildCalendar;
+            selDiv.appendChild(btn);
+          }
+        }, 100);
+        // Restaurar selección de campaña y fecha si existen
+        if (selectedCampania) {
+          const sel = document.getElementById('campanias');
+          if (sel.value !== selectedCampania) {
+            sel.value = selectedCampania;
+            // NO lanzar 'change' aquí para evitar bucles infinitos
+          }
+        }
+        if (selectedDate) calendar.gotoDate(selectedDate);
+      }
+
+      // --- Calendario LIBRAR ---
+      let calendarLibrar;
+      function mostrarCalendarioLibrar(options = {}) {
+        const { skipNavUpdate = false } = options;
+        if (!skipNavUpdate && typeof window.syncCalendarNav === 'function') {
+          window.syncCalendarNav('librar', { updateSection: true, updateOtherButtons: true });
+        }
+        // Guardar selección actual de Trabajar
+        selectedCampania = document.getElementById('campanias').value;
+        if (calendar) selectedDate = calendar.getDate();
+        document.getElementById('mainTitle').textContent = 'Bolsa de horas';
+        showLoader(true);
+        document.getElementById('selector').style.display = 'none';
+        document.getElementById('calendarWrap').style.display = 'none';
+        document.getElementById('misReservasWrap').style.display = 'none';
+        document.getElementById('selectorLibrar').style.display = '';
+        document.getElementById('calendarWrapLibrar').style.display = '';
+        showLoader(true);
+        google.script.run.withSuccessHandler(camps=>{
+          const sel=document.getElementById('campaniasLibrar');
+          sel.innerHTML=camps.map(c=>`<option value="${c}">${c}</option>`).join('');
+          // Restaurar última campaña de librar o usar la campaña de trabajar
+          const initialLib = selectedCampaniaLibrar || selectedCampania;
+          if (initialLib && camps.includes(initialLib)) {
+            sel.value = initialLib;
+          }
+          sel.onchange = function() {
+            selectedCampaniaLibrar = sel.value;
+            buildCalendarLibrar();
+          };
+          if (camps.length) {
+            sel.value = sel.value || camps[0];
+            buildCalendarLibrar();
+          }
+          // showLoader(false); // 
+        }).getCampaniasLibrar();
+      }
+
+      function buildCalendarLibrar(){
+        if(calendarLibrar) calendarLibrar.destroy();
+        const campania=document.getElementById('campaniasLibrar').value;
+        calendarLibrar=new FullCalendar.Calendar(document.getElementById('calendarLibrar'),{
+          initialView:'timeGridWeek',
+          firstDay:1,
+          slotMinTime:'00:00:00',
+          slotMaxTime:'24:00:00',
+          slotDuration:'01:00:00',
+          locale:'es',
+          height:900,
+          displayEventTime:false,
+          allDaySlot:false,
+          buttonText: {
+            today: 'hoy',
+            month: 'mes',
+            week: 'semana',
+            day: 'día'
+          },
+          headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+          },
+          slotLabelContent: function(arg) {
+            const hora = arg.date.getHours();
+            const pad = n => n < 10 ? '0' + n : '' + n;
+            const hIni = pad(hora) + ':00';
+            const hFin = pad((hora + 1) % 24) + ':00';
+            return `${hIni}-${hFin}`;
+          },
+          events:(fetchInfo,success,failure)=>{
+            showLoader(true);
+            google.script.run
+              .withSuccessHandler(ev => { success(ev); setTimeout(() => showLoader(false), 650); })
+              .withFailureHandler(err=>{
+                showLoader(false); alert(err.message); failure(err);
+              })
+              .getHorasDisponiblesLibrar(campania,fetchInfo.startStr,fetchInfo.endStr);
+          },
+          eventClick: async info => {
+          const libres = parseInt(info.event.title, 10);
+          if (!libres || libres <= 0) { alert('Sin plazas disponibles'); return; }
+
+          const campSel  = document.getElementById('campaniasLibrar').value;
+          const s        = info.event.start;
+          const startDay = new Date(s); startDay.setHours(0,0,0,0);
+          const endDay   = new Date(s); endDay.setHours(23,59,59,999);
+
+          // NUEVO: comprobar si puede reservar
+          // showLoader(true);
+          // google.script.run.withSuccessHandler(async misReservas => {
+          //   showLoader(false);
+          //   const tieneVigente = misReservas.some(r =>
+          //     r.tipo === 'Trabajar'
+          //     && r.estadoSolicitud === 'Vigente'
+          //   );
+          //   if (!tieneVigente) {
+          //     await showSuccess(
+          //       'Para poder reservar horas de libranza necesitas tener una reserva de trabajar en estado Vigente.',
+          //       'Atención'
+          //     );
+          //     return;
+          //   }
+          // }).getMisReservas();
+
+          // Lógica original para reservar libranza
+          showLoader(true);
+          google.script.run.withSuccessHandler(async evs => {
+            showLoader(false);
+
+            // filtrar/ordenar slots del día
+            const eventosDia = evs
+              .filter(e => new Date(e.start).toDateString() === s.toDateString())
+              .sort((a,b) => new Date(a.start) - new Date(b.start));
+
+            // calcular maxHoras
+            let maxHoras = 1;
+            let idx = eventosDia.findIndex(e => new Date(e.start).getTime() === s.getTime());
+            if (idx === -1) idx = 0;
+            for (let i = idx + 1; i < eventosDia.length; i++) {
+              if (parseInt(eventosDia[i].title,10) > 0) maxHoras++;
+              else break;
+            }
+
+            // preguntar cuántas horas
+            const pad       = n => n < 10 ? '0' + n : '' + n;
+            const fecha     = s.toLocaleDateString('es-ES');
+            const franjaIni = `${pad(s.getHours())}:00`;
+            const resConfirm = await showConfirm(
+              `¿Cuántas horas quieres solicitar para librar?\n${campSel} – ${fecha} – desde ${franjaIni}`,
+              maxHoras
+            );
+            const horas = (typeof resConfirm === 'object' && resConfirm !== null) ? resConfirm.horas : resConfirm;
+            if (!horas || horas < 1) return;
+
+            // revalidar disponibilidad
+            let ok = true;
+            for (let h = 0; h < horas; h++) {
+              const bloque = new Date(s.getTime() + h * 3600000);
+              const slot   = eventosDia.find(e => new Date(e.start).getTime() === bloque.getTime());
+              if (!slot || parseInt(slot.title,10) < 1) { ok = false; break; }
+            }
+            if (!ok) {
+              alert('Alguna de las horas seleccionadas no está disponible.');
+              return;
+            }
+
+            // llamada final para reservar
+            showLoader(true);
+            google.script.run
+              .withSuccessHandler(async msg => {
+                showLoader(false);
+                await showSuccess(msg);
+                buildCalendarLibrar();
+              })
+              .withFailureHandler(err => {
+                showLoader(false);
+                alert(err.message);
+              })
+              .reservarVariasHorasLibrar(campSel, s.toISOString(), horas);
+          })
+          .getHorasDisponiblesLibrar(campSel, startDay.toISOString(), endDay.toISOString());
+        }
+
+        });
+        calendarLibrar.render();
+        // Añadir botón refrescar a la derecha del selector de campaña de librar
+        setTimeout(() => {
+          const selDiv = document.getElementById('selectorLibrar');
+          if (selDiv && !document.getElementById('btnRefrescarLibrar')) {
+            let btn = document.createElement('button');
+            btn.id = 'btnRefrescarLibrar';
+            btn.title = 'Refrescar calendario';
+            btn.innerHTML = '&#x21bb;';
+            btn.style.marginLeft = '16px';
+            btn.style.background = '#f8f8fa';
+            btn.style.border = '2px solid #bc348b';
+            btn.style.borderRadius = '50%';
+            btn.style.padding = '7px 12px';
+            btn.style.cursor = 'pointer';
+            btn.style.fontSize = '1.1em';
+            btn.style.boxShadow = '0 1px 8px #bc348b13';
+            btn.onclick = buildCalendarLibrar;
+            selDiv.appendChild(btn);
+          }
+        }, 100);
+        // Restaurar selección de campaña y fecha si existen
+        if (selectedCampaniaLibrar) {
+          const selLib = document.getElementById('campaniasLibrar');
+          if (selLib.value !== selectedCampaniaLibrar) {
+            selLib.value = selectedCampaniaLibrar;
+            
+          }
+        }
+        if (selectedDateLibrar) calendarLibrar.gotoDate(selectedDateLibrar);
+      }
+
+      // Volver al calendario de trabajar
+      function volverCalendario(options = {}){
+        const { skipNavUpdate = false } = options;
+        if (!skipNavUpdate && typeof window.syncCalendarNav === 'function') {
+          window.syncCalendarNav('trabajar', { updateSection: true, updateOtherButtons: true });
+        }
+        // Guardar selección actual de Librar
+        selectedCampaniaLibrar = document.getElementById('campaniasLibrar').value;
+        if (calendarLibrar) selectedDateLibrar = calendarLibrar.getDate();
+        document.getElementById('misReservasWrap').style.display = 'none';
+        document.getElementById('selector').style.display = '';
+        document.getElementById('calendarWrap').style.display = '';
+        document.getElementById('selectorLibrar').style.display = 'none';
+        document.getElementById('calendarWrapLibrar').style.display = 'none';
+        document.getElementById('mainTitle').textContent = 'Bolsa de horas';
+        // Mostrar loader y refrescar calendario
+        showLoader(true);
+        setTimeout(buildCalendar, 80);
+      }
+
+      // Escape cierra mis solicitudes
+      document.addEventListener('keydown', function(e){
+        if(e.key==='Escape') document.getElementById('misReservasWrap').style.display='none';
+      });
+
+      // Helpers generales
+      const loader = document.getElementById('loader-overlay');
+      const showLoader = show => loader.style.display = show ? 'flex' : 'none';
+
+      function showConfirm(text, maxHoras) {
+        return new Promise(resolve => {
+          const overlay = document.getElementById('confirm-overlay');
+          const dynamic = document.getElementById('confirm-dynamic');
+
+          // Bloque selector de horas
+          if (maxHoras && maxHoras > 1) {
+            dynamic.innerHTML = `
+              <div style="margin-bottom:12px;">
+                <label>¿Cuántas horas quieres solicitar? 
+                  <select id="input-horas" style="font-weight:bold;font-size:1.05em;margin-left:10px;padding:5px 18px;border-radius:8px;border:1px solid #00897b;">
+                    ${Array.from({length: maxHoras}, (_, i) => `<option value="${i+1}">${i+1}</option>`).join('')}
+                  </select>
+                </label>
+              </div>`;
+          } else {
+            dynamic.innerHTML = '';
+          }
+
+          // Si la campaña permite cobrar, mostrar checkbox dentro del modal
+          if (window.puedeCobrar) {
+            dynamic.innerHTML += `
+              <div style="margin-top:8px;">
+                <label style="font-weight:600;">
+                  <input type="checkbox" id="input-cobrar" style="margin-right:8px;">
+                  Registrar estas horas como <span style="color:#bc348b;">Cobrar</span>
+                </label>
+              </div>`;
+          }
+
+          document.getElementById('confirm-text').innerText = text;
+          overlay.style.display = 'flex';
+
+          const ok = () => {
+            let horas = 1;
+            if (maxHoras && maxHoras > 1) {
+              horas = parseInt(document.getElementById('input-horas').value, 10);
+            }
+            const cobrar = document.getElementById('input-cobrar')?.checked || false;
+            overlay.style.display = 'none';
+            resolve({ horas, cobrar });
+          };
+          const no = () => {
+            overlay.style.display = 'none';
+            resolve({ horas: 0, cobrar: false });
+          };
+
+          document.getElementById('btn-confirm').onclick = ok;
+          document.getElementById('btn-cancel').onclick  = no;
+        });
+      }
+
+      function showConfirmCancelar(texto) {
+        return new Promise(resolve => {
+          const overlay = document.getElementById('confirm-overlay');
+          const dynamic = document.getElementById('confirm-dynamic');
+          dynamic.innerHTML = '';
+          document.getElementById('confirm-text').innerText = texto;
+          document.querySelector('#confirm-modal h3').innerText = "Cancelar solicitud";
+          document.getElementById('btn-confirm').innerText = "Aceptar";
+          document.getElementById('btn-cancel').innerText = "Cancelar";
+          document.getElementById('btn-confirm').style.background = "#bc348b";
+          document.getElementById('btn-cancel').style.background = "#999";
+          overlay.style.display = 'flex';
+
+          const ok = () => {
+            overlay.style.display = 'none';
+            document.querySelector('#confirm-modal h3').innerText = "Registrar solicitud";
+            document.getElementById('btn-confirm').innerText = "Aceptar";
+            document.getElementById('btn-cancel').innerText = "Cancelar";
+            resolve(true);
+          };
+          const no = () => {
+            overlay.style.display = 'none';
+            document.querySelector('#confirm-modal h3').innerText = "Registrar solicitud";
+            document.getElementById('btn-confirm').innerText = "Aceptar";
+            document.getElementById('btn-cancel').innerText = "Cancelar";
+            resolve(false);
+          };
+
+          document.getElementById('btn-confirm').onclick = ok;
+          document.getElementById('btn-cancel').onclick = no;
+        });
+      }
+
+      function showSuccessCancel(msg) {
+        return new Promise(resolve => {
+          const overlay = document.getElementById('success-overlay');
+          document.querySelector('#success-modal h3').innerText = "Solicitud cancelada";
+          document.getElementById('success-text').innerText = msg;
+          overlay.style.display = 'flex';
+          document.getElementById('btn-success-ok').onclick = function() {
+            overlay.style.display = 'none';
+            // restaurar título
+            document.querySelector('#success-modal h3').innerText = "Solicitud registrada correctamente";
+            resolve();
+          };
+        });
+      }
+
+      function showSuccess(msg, titulo = "Solicitud registrada correctamente") {
+        return new Promise(resolve => {
+          const overlay = document.getElementById('success-overlay');
+          document.querySelector('#success-modal h3').innerText = titulo;
+          document.getElementById('success-text').innerText = msg;
+          overlay.style.display = 'flex';
+          document.getElementById('btn-success-ok').onclick = function() {
+            overlay.style.display = 'none';
+            // restaurar título para próximos usos
+            document.querySelector('#success-modal h3').innerText = "Solicitud registrada correctamente";
+            resolve();
+          };
+        });
+      }
+    </script>
+  </div>
+</section>

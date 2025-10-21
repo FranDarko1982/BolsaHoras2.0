@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Bienvenido/a a la Bolsa de Horas</title>
+  <?!= HtmlService.createHtmlOutputFromFile('styles').getContent(); ?>
+</head>
+<body class="menu-page">
+  <div class="menu-container">
+    <h2>Bienvenido/a a la Bolsa de Horas</h2>
+    <div class="manual-box">
+      <strong>Manual de uso:</strong>
+      <ul>
+        <li>Selecciona el calendario que necesitas (trabajar o librar).</li>
+        <li>Elige la campaña y consulta los tramos disponibles.</li>
+        <li>Haz clic en un tramo para solicitar horas y sigue los pasos en pantalla.</li>
+        <li>Puedes consultar tus solicitudes en el apartado "Mis solicitudes". Podrás cancelar hasta un día antes de la fecha cualquiera de tus peticiones.</li>
+        <li>Para detalles completos, descarga el manual o consúltalo con tu responsable.</li>
+      </ul>
+    </div>
+    <a class="descargar-manual" href="https://docs.google.com/document/d/1HlXwETv8QZjvJuRbc_Ymj10NgvPtyNWmIW8ppeq9NI8/edit?usp=sharing" target="_blank">
+      Descargar manual completo
+    </a>
+    <button class="menu-btn" onclick="accederCalendario()">
+      Acceder al calendario
+    </button>
+  </div>
+  <script>
+    function accederCalendario() {
+      google.script.run
+        .withSuccessHandler(function(html){
+          document.open();
+          document.write(html);
+          document.close();
+        })
+        .getIndexHtml();
+    }
+  </script>
+</body>
+</html>
+<!-- Cambio de prueba hecho desde VS Code -->
