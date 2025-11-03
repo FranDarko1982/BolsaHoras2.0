@@ -290,6 +290,7 @@
                 </div>
 
                 <div class="table-footer-actions">
+                  <button type="button" id="downloadMisSolicitudesCsv" class="btn btn-secondary" disabled>Descargar CSV</button>
                   <button type="button" id="deleteSelectedButton" class="btn btn-danger" disabled>Eliminar</button>
                 </div>
 
@@ -555,6 +556,7 @@
           tbody: document.getElementById('misSolicitudesBody'),
           selectAllCheckbox: document.getElementById('selectAllCheckbox'),
           deleteSelectedButton: document.getElementById('deleteSelectedButton'),
+          downloadCsvButton: document.getElementById('downloadMisSolicitudesCsv'),
           filters: {
             container: document.getElementById('misSolicitudesFilters'),
             dateStart: document.getElementById('misSolicitudesFechaInicio'),
@@ -588,6 +590,7 @@
 
         initializeMisSolicitudesFilters();
         setupMultipleDelete();
+        setupMisSolicitudesDownload();
 
         let dashboardLoaded = false;
         let solicitudesChartInstance = null;
@@ -1196,6 +1199,95 @@
           }
         }
 
+        function setupMisSolicitudesDownload() {
+          const button = misSolicitudesUI.downloadCsvButton;
+          if (!button) return;
+
+          if (!button.dataset.originalText) {
+            button.dataset.originalText = button.textContent || 'Descargar CSV';
+          }
+
+          button.addEventListener('click', handleDownloadMisSolicitudesCsv);
+          updateDownloadButtonState();
+        }
+
+        function handleDownloadMisSolicitudesCsv() {
+          const button = misSolicitudesUI.downloadCsvButton;
+          const data = misSolicitudesState.filtered;
+
+          if (!button || !Array.isArray(data) || !data.length) {
+            return;
+          }
+
+          const originalText = button.dataset.originalText || button.textContent || 'Descargar CSV';
+          button.disabled = true;
+          button.textContent = 'Preparando…';
+
+          try {
+            const csvContent = buildMisSolicitudesCsv(data);
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const now = new Date();
+            const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            link.href = url;
+            link.download = `mis_solicitudes_${formattedDate}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          } catch (error) {
+            console.error('No se pudo generar el CSV de solicitudes:', error);
+            alert('No se pudo generar la descarga. Inténtalo de nuevo más tarde.');
+          } finally {
+            button.textContent = originalText;
+            updateDownloadButtonState();
+          }
+        }
+
+        function buildMisSolicitudesCsv(data) {
+          if (!Array.isArray(data)) return '';
+
+          const columns = [
+            { key: 'reservaId', label: 'ID reserva' },
+            { key: 'campania', label: 'Campaña' },
+            { key: 'correo', label: 'Correo' },
+            { key: 'numeroEmpleado', label: 'Nº empleado' },
+            { key: 'fecha', label: 'Fecha' },
+            { key: 'franja', label: 'Franja' },
+            { key: 'horas', label: 'Horas' },
+            { key: 'tipo', label: 'Tipo' },
+            { key: 'estadoSolicitud', label: 'Estado solicitud' }
+          ];
+
+          const header = columns.map(column => formatCsvValue(column.label)).join(',');
+          const rows = data.map(item => columns.map(column => {
+            if (!item || typeof item !== 'object') return '';
+
+            if (column.key === 'reservaId') {
+              const preferred = item.reservaId || item.idReserva || item.reservaID || item.id || '';
+              return formatCsvValue(preferred);
+            }
+
+            const value = Object.prototype.hasOwnProperty.call(item, column.key)
+              ? item[column.key]
+              : '';
+            return formatCsvValue(value);
+          }).join(','));
+
+          const content = [header, ...rows];
+          return '\uFEFF' + content.join('\r\n');
+        }
+
+        function formatCsvValue(value) {
+          if (value === null || value === undefined) return '';
+          const stringValue = String(value).replace(/\r?\n|\r/g, ' ').trim();
+          if (!stringValue) return '';
+          const needsQuotes = /[",;\n]/.test(stringValue);
+          const sanitized = stringValue.replace(/"/g, '""');
+          return needsQuotes ? `"${sanitized}"` : sanitized;
+        }
+
         function handleMisSolicitudesFilterChange() {
           syncMisSolicitudesFiltersFromInputs();
           applyMisSolicitudesFilters({ resetPage: true });
@@ -1386,6 +1478,7 @@
               : 'No hay solicitudes registradas.';
             setMisSolicitudesPlaceholder(message);
             updateDeleteButtonState();
+            updateDownloadButtonState();
             return;
           }
 
@@ -1500,6 +1593,7 @@
           });
 
           updateDeleteButtonState();
+          updateDownloadButtonState();
         }
 
         function updateMisSolicitudesPagination() {
@@ -2278,6 +2372,8 @@
           if (pagination && pagination.container) {
             pagination.container.hidden = true;
           }
+
+          updateDownloadButtonState();
         }
 
         function setupMultipleDelete() {
@@ -2302,6 +2398,17 @@
           });
 
           misSolicitudesUI.deleteSelectedButton.addEventListener('click', handleDeleteSelected);
+        }
+
+        function updateDownloadButtonState() {
+          const button = misSolicitudesUI.downloadCsvButton;
+          if (!button) return;
+
+          const hasData = Array.isArray(misSolicitudesState.filtered) && misSolicitudesState.filtered.length > 0;
+          button.disabled = !hasData;
+          button.title = hasData
+            ? 'Descarga un CSV con las solicitudes visibles tras aplicar los filtros.'
+            : 'No hay solicitudes disponibles para descargar.';
         }
 
         function updateDeleteButtonState() {
