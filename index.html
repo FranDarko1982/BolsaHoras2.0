@@ -271,6 +271,7 @@
                         <th>ID reserva</th>
                         <th>Campaña</th>
                         <th>Correo</th>
+                        <th>Nº empleado</th>
                         <th>Fecha</th>
                         <th>Franja</th>
                         <th>Horas</th>
@@ -282,7 +283,7 @@
                     </thead>
                     <tbody id="misSolicitudesBody">
                       <tr class="table-placeholder">
-                        <td colspan="10">Cargando solicitudes…</td>
+                        <td colspan="11">Cargando solicitudes…</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1401,6 +1402,7 @@
             { key: 'reservaId', className: 'table-cell-id' },
             { key: 'campania' },
             { key: 'correo' },
+            { key: 'numeroEmpleado' },
             { key: 'fecha', className: 'table-cell-date' },
             { key: 'franja' },
             { key: 'horas' },
@@ -2267,7 +2269,7 @@
           const row = document.createElement('tr');
           row.className = 'table-placeholder';
           const cell = document.createElement('td');
-          cell.colSpan = 10;
+          cell.colSpan = 11;
           cell.textContent = message;
           row.appendChild(cell);
           tbody.appendChild(row);
