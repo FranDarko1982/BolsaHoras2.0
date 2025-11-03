@@ -6,6 +6,7 @@ const SHEET_HORAS        = 'Horas trabajar';
 const SHEET_RES          = 'bbdd reservas horas trabajar';
 const SHEET_HORAS_LIBRAR = 'Horas librar';
 const SHEET_RES_LIBRAR   = 'bbdd reservas horas librar';
+const SHEET_DATOS_LOCKER = 'Datos Locker';
 const SHEET_ADMIN        = 'admin';
 
 const RESERVA_ID_PROP_KEY = 'RESERVA_ID_COUNTER';
@@ -30,6 +31,7 @@ const sheetHoras       = ss.getSheetByName(SHEET_HORAS);
 const sheetHorasLibrar = ss.getSheetByName(SHEET_HORAS_LIBRAR);
 const sheetResTrabajar = ss.getSheetByName(SHEET_RES)        || createReservaSheet(ss, SHEET_RES);
 const sheetResLibrar   = ss.getSheetByName(SHEET_RES_LIBRAR) || createReservaSheet(ss, SHEET_RES_LIBRAR);
+const sheetDatosLocker = ss.getSheetByName(SHEET_DATOS_LOCKER);
 
 const sheetAdmin       = ss.getSheetByName(SHEET_ADMIN);
 
@@ -811,12 +813,19 @@ function getSolicitudesAcumuladas() {
     return [];
   }
 
-  const solicitudesTrabajar = _getSolicitudesDeHoja(sheetResTrabajar, 'Trabajar', tz);
-  const solicitudesLibrar = _getSolicitudesDeHoja(sheetResLibrar, 'Librar', tz);
-
   const normalizar = valor => String(valor || '').trim().toLowerCase();
+  const todasSolicitudes = (() => {
+    if (sheetDatosLocker) {
+      const lockerSolicitudes = _getSolicitudesDeHoja(sheetDatosLocker, '', tz);
+      if (Array.isArray(lockerSolicitudes) && lockerSolicitudes.length) {
+        return lockerSolicitudes;
+      }
+    }
+    const solicitudesTrabajar = _getSolicitudesDeHoja(sheetResTrabajar, 'Trabajar', tz);
+    const solicitudesLibrar = _getSolicitudesDeHoja(sheetResLibrar, 'Librar', tz);
+    return [...solicitudesTrabajar, ...solicitudesLibrar];
+  })();
 
-  const todasSolicitudes = [...solicitudesTrabajar, ...solicitudesLibrar];
   const visibles = isAdmin
     ? todasSolicitudes
     : todasSolicitudes.filter(item => normalizar(item.correo) === email);
@@ -878,6 +887,7 @@ function _getSolicitudesDeHoja(sheet, defaultTipo, tz) {
   const colHoras = _findFirstIndex(headerMap, ['HORAS', 'Horas', 'Horas solicitadas', 'Horas reservadas']);
   const colTipo = _findFirstIndex(headerMap, ['Tipo', 'Tipo petición', 'Tipo Peticion', 'Tipo solicitud']);
   const colEstado = _findFirstIndex(headerMap, ['Estado solicitud', 'Estado', 'Estado Solicitud']);
+  const colNumeroEmpleado = _findFirstIndex(headerMap, ['NºEmpleado', 'Nº Empleado', 'Num empleado', 'Numero empleado', 'NumeroEmpleado', 'NEmpleado']);
   const colKey = _findFirstIndex(headerMap, ['key', 'Key', 'KEY']);
   const colReservaId = _findFirstIndex(headerMap, ['ID reserva', 'ID Reserva', 'Id reserva', 'Reserva ID', 'ID']);
 
@@ -923,6 +933,7 @@ function _getSolicitudesDeHoja(sheet, defaultTipo, tz) {
       tipo: tipoFormatted,
       estadoSolicitud: estadoFormatted,
       key: keyValue,
+      numeroEmpleado: colNumeroEmpleado >= 0 ? String(row[colNumeroEmpleado] || '').trim() : '',
       reservaId: colReservaId >= 0 ? String(row[colReservaId] || '').trim() : '',
       _timestamp: fechaDate ? fechaDate.getTime() : 0
     });

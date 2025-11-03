@@ -252,6 +252,12 @@
                   </div>
                   <div class="table-controls-group">
                     <label class="table-control-field">
+                      <span>Nº empleado</span>
+                      <input type="text" id="misSolicitudesEmpleado" name="numeroEmpleado" placeholder="E00000000" autocomplete="off">
+                    </label>
+                  </div>
+                  <div class="table-controls-group">
+                    <label class="table-control-field">
                       <span>ID de reserva</span>
                       <input type="text" id="misSolicitudesId" name="reservaId" placeholder="BH00000000" autocomplete="off">
                     </label>
@@ -539,6 +545,7 @@
             dateEnd: '',
             campania: '',
             correo: '',
+            numeroEmpleado: '',
             reservaId: ''
           }
         };
@@ -553,6 +560,7 @@
             dateEnd: document.getElementById('misSolicitudesFechaFin'),
             campania: document.getElementById('misSolicitudesCampania'),
             correo: document.getElementById('misSolicitudesCorreo'),
+            numeroEmpleado: document.getElementById('misSolicitudesEmpleado'),
             reservaId: document.getElementById('misSolicitudesId'),
             reset: document.getElementById('misSolicitudesFiltersReset')
           },
@@ -1112,10 +1120,20 @@
                 item.id ||
                 ''
               ).trim();
+              const numeroEmpleado = String(
+                item.numeroEmpleado ||
+                item.numeroempleado ||
+                item['NºEmpleado'] ||
+                item['Nº empleado'] ||
+                item['Numero empleado'] ||
+                item['NumeroEmpleado'] ||
+                ''
+              ).trim();
 
               return {
                 ...item,
-                reservaId
+                reservaId,
+                numeroEmpleado
               };
             });
 
@@ -1156,6 +1174,10 @@
             filters.correo.addEventListener('input', handleMisSolicitudesFilterChange);
           }
 
+          if (filters.numeroEmpleado) {
+            filters.numeroEmpleado.addEventListener('input', handleMisSolicitudesFilterChange);
+          }
+
           if (filters.reservaId) {
             filters.reservaId.addEventListener('input', handleMisSolicitudesFilterChange);
           }
@@ -1186,12 +1208,14 @@
           if (filters.dateEnd) filters.dateEnd.value = '';
           if (filters.campania) filters.campania.value = '';
           if (filters.correo) filters.correo.value = '';
+          if (filters.numeroEmpleado) filters.numeroEmpleado.value = '';
           if (filters.reservaId) filters.reservaId.value = '';
 
           misSolicitudesState.filters.dateStart = '';
           misSolicitudesState.filters.dateEnd = '';
           misSolicitudesState.filters.campania = '';
           misSolicitudesState.filters.correo = '';
+          misSolicitudesState.filters.numeroEmpleado = '';
           misSolicitudesState.filters.reservaId = '';
 
           applyMisSolicitudesFilters({ resetPage: true });
@@ -1222,6 +1246,14 @@
             misSolicitudesState.filters.correo = trimmedCorreo.toLowerCase();
           } else {
             misSolicitudesState.filters.correo = '';
+          }
+
+          if (filters.numeroEmpleado) {
+            const formattedEmpleado = String(filters.numeroEmpleado.value || '').trim().toUpperCase();
+            filters.numeroEmpleado.value = formattedEmpleado;
+            misSolicitudesState.filters.numeroEmpleado = formattedEmpleado;
+          } else {
+            misSolicitudesState.filters.numeroEmpleado = '';
           }
 
           if (filters.reservaId) {
@@ -1285,6 +1317,7 @@
           const hasRange = startTimestamp != null && endTimestamp != null;
           const campaniaFilter = String(filters.campania || '').trim().toLowerCase();
           const correoFilter = String(filters.correo || '').trim().toLowerCase();
+          const empleadoFilter = String(filters.numeroEmpleado || '').trim().toUpperCase();
           const idFilter = String(filters.reservaId || '').trim().toUpperCase();
 
           misSolicitudesState.filtered = all.filter(item => {
@@ -1309,6 +1342,13 @@
             const correoValue = String(item.correo || '').trim().toLowerCase();
             if (correoFilter && !correoValue.includes(correoFilter)) {
               return false;
+            }
+
+            if (empleadoFilter) {
+              const empleadoValue = String(item.numeroEmpleado || '').toUpperCase();
+              if (!empleadoValue.includes(empleadoFilter)) {
+                return false;
+              }
             }
 
             if (idFilter) {
