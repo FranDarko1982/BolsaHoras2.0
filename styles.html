@@ -458,44 +458,90 @@
       }
 
       .control-panel-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(208px, 1fr));
+        gap: 22px;
       }
 
       .control-panel-btn {
-        border: none;
-        border-radius: 28px;
-        padding: 16px 22px;
-        font-size: 1.05rem;
-        font-weight: 700;
-        color: #fff;
-        cursor: pointer;
-        letter-spacing: 0.01em;
-        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        --control-accent: linear-gradient(135deg, #f283be, #bc348b);
+        position: relative;
+        border: 1px solid rgba(188, 52, 139, 0.12);
+        border-radius: 26px;
+        padding: 32px 26px;
+        background: linear-gradient(150deg, rgba(255, 255, 255, 0.96), rgba(252, 238, 248, 0.9));
+        box-shadow: 0 24px 48px rgba(188, 52, 139, 0.18);
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        box-shadow: 0 18px 32px rgba(188, 52, 139, 0.2);
+        gap: 18px;
+        text-align: center;
+        color: var(--color-primary-strong);
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        cursor: pointer;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
       }
 
       .control-panel-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 22px 38px rgba(188, 52, 139, 0.26);
+        transform: translateY(-3px);
+        box-shadow: 0 30px 56px rgba(188, 52, 139, 0.24);
       }
 
       .control-panel-btn:active {
-        transform: translateY(0);
+        transform: translateY(-1px);
+      }
+
+      .control-panel-btn:focus-visible {
+        outline: 3px solid rgba(188, 52, 139, 0.28);
+        outline-offset: 6px;
+      }
+
+      .control-panel-btn-icon {
+        width: 74px;
+        height: 74px;
+        border-radius: 22px;
+        background: var(--control-accent);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        box-shadow: 0 20px 34px rgba(188, 52, 139, 0.26);
+      }
+
+      .control-panel-btn-icon svg {
+        width: 32px;
+        height: 32px;
+      }
+
+      .control-panel-btn-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .control-panel-btn-title {
+        font-size: 1.08rem;
+        font-family: 'Montserrat', sans-serif;
+      }
+
+      .control-panel-btn-subtitle {
+        font-size: 0.96rem;
+        font-weight: 500;
+        color: var(--color-text-soft);
       }
 
       .control-panel-btn--trabajar {
-        background: linear-gradient(135deg, #f7a248, #e66a2d);
-        box-shadow: 0 18px 32px rgba(230, 106, 45, 0.24);
+        --control-accent: linear-gradient(135deg, #f7a248, #e66a2d);
+      }
+
+      .control-panel-btn--trabajar .control-panel-btn-icon {
+        box-shadow: 0 20px 34px rgba(230, 106, 45, 0.28);
       }
 
       .control-panel-btn--librar {
-        background: linear-gradient(135deg, #f283be, #bc348b);
-        box-shadow: 0 18px 32px rgba(188, 52, 139, 0.24);
+        --control-accent: linear-gradient(135deg, #f283be, #bc348b);
       }
 
       .table-wrapper {
@@ -1002,8 +1048,20 @@
           padding: 32px 28px;
         }
         .control-panel-btn {
-          font-size: 0.95rem;
-          padding: 14px 18px;
+          padding: 26px 22px;
+        }
+        .control-panel-actions {
+          grid-template-columns: 1fr;
+        }
+        .control-panel-btn-icon {
+          width: 64px;
+          height: 64px;
+        }
+        .control-panel-btn-title {
+          font-size: 1rem;
+        }
+        .control-panel-btn-subtitle {
+          font-size: 0.9rem;
         }
       }
 
