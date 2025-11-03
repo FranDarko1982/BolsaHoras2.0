@@ -555,6 +555,22 @@
         transition: box-shadow 0.2s ease, border-color 0.2s ease;
       }
 
+      .table-control-field input::placeholder {
+        color: rgba(110, 104, 129, 0.6);
+      }
+
+      .table-control-field input.is-placeholder {
+        color: rgba(110, 104, 129, 0.68);
+      }
+
+      .table-control-field input.is-placeholder::placeholder {
+        color: rgba(110, 104, 129, 0.55);
+      }
+
+      .table-control-field select.is-placeholder {
+        color: rgba(110, 104, 129, 0.68);
+      }
+
       .table-control-field input:focus,
       .table-control-field select:focus {
         outline: none;

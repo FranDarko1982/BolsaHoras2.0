@@ -1162,6 +1162,25 @@
           applyMisSolicitudesFilters({ resetPage: true });
         }
 
+        function updateMisSolicitudesFilterAppearance(field) {
+          if (!field) return;
+          field.classList.toggle('is-placeholder', !field.value);
+        }
+
+        function refreshMisSolicitudesFiltersAppearance() {
+          const { filters } = misSolicitudesUI;
+          if (!filters) return;
+
+          [
+            filters.dateStart,
+            filters.dateEnd,
+            filters.campania,
+            filters.correo,
+            filters.numeroEmpleado,
+            filters.reservaId
+          ].forEach(updateMisSolicitudesFilterAppearance);
+        }
+
         function initializeMisSolicitudesFilters() {
           const { filters, pagination } = misSolicitudesUI;
           if (!filters) return;
@@ -1201,6 +1220,8 @@
           if (pagination && pagination.next) {
             pagination.next.addEventListener('click', () => changeMisSolicitudesPage(1));
           }
+
+          refreshMisSolicitudesFiltersAppearance();
         }
 
         function setupMisSolicitudesDownload() {
@@ -1294,6 +1315,7 @@
 
         function handleMisSolicitudesFilterChange() {
           syncMisSolicitudesFiltersFromInputs();
+          refreshMisSolicitudesFiltersAppearance();
           applyMisSolicitudesFilters({ resetPage: true });
         }
 
@@ -1315,6 +1337,7 @@
           misSolicitudesState.filters.numeroEmpleado = '';
           misSolicitudesState.filters.reservaId = '';
 
+          refreshMisSolicitudesFiltersAppearance();
           applyMisSolicitudesFilters({ resetPage: true });
         }
 
