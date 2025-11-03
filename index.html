@@ -226,46 +226,48 @@
               </div>
               <div class="panel-body">
                 <div class="table-controls" id="misSolicitudesFilters" aria-label="Filtros de solicitudes">
-                  <div class="table-controls-group">
-                    <label class="table-control-field">
-                      <span>Fecha desde</span>
-                      <input type="date" id="misSolicitudesFechaInicio" name="fechaInicio">
-                    </label>
-                    <label class="table-control-field">
-                      <span>Fecha hasta</span>
-                      <input type="date" id="misSolicitudesFechaFin" name="fechaFin">
-                    </label>
+                  <div class="table-controls-fields">
+                    <div class="table-controls-group">
+                      <label class="table-control-field">
+                        <span>Fecha desde</span>
+                        <input type="date" id="misSolicitudesFechaInicio" name="fechaInicio">
+                      </label>
+                      <label class="table-control-field">
+                        <span>Fecha hasta</span>
+                        <input type="date" id="misSolicitudesFechaFin" name="fechaFin">
+                      </label>
+                    </div>
+                    <div class="table-controls-group">
+                      <label class="table-control-field">
+                        <span>Campaña</span>
+                        <select id="misSolicitudesCampania" name="campania">
+                          <option value="">Todas</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div class="table-controls-group">
+                      <label class="table-control-field">
+                        <span>Correo electrónico</span>
+                        <input type="text" id="misSolicitudesCorreo" name="correo" placeholder="persona@empresa.com" autocomplete="off">
+                      </label>
+                    </div>
+                    <div class="table-controls-group">
+                      <label class="table-control-field">
+                        <span>Nº empleado</span>
+                        <input type="text" id="misSolicitudesEmpleado" name="numeroEmpleado" placeholder="E00000000" autocomplete="off">
+                      </label>
+                    </div>
+                    <div class="table-controls-group">
+                      <label class="table-control-field">
+                        <span>ID de reserva</span>
+                        <input type="text" id="misSolicitudesId" name="reservaId" placeholder="BH00000000" autocomplete="off">
+                      </label>
+                    </div>
                   </div>
-                  <div class="table-controls-group">
-                    <label class="table-control-field">
-                      <span>Campaña</span>
-                      <select id="misSolicitudesCampania" name="campania">
-                        <option value="">Todas</option>
-                      </select>
-                    </label>
+                  <div class="table-controls-actions">
+                    <button type="button" id="downloadMisSolicitudesCsv" class="btn btn-secondary" disabled>Descargar CSV</button>
+                    <button type="button" id="misSolicitudesFiltersReset" class="btn btn-ghost">Limpiar filtros</button>
                   </div>
-                  <div class="table-controls-group">
-                    <label class="table-control-field">
-                      <span>Correo electrónico</span>
-                      <input type="text" id="misSolicitudesCorreo" name="correo" placeholder="persona@empresa.com" autocomplete="off">
-                    </label>
-                  </div>
-                  <div class="table-controls-group">
-                    <label class="table-control-field">
-                      <span>Nº empleado</span>
-                      <input type="text" id="misSolicitudesEmpleado" name="numeroEmpleado" placeholder="E00000000" autocomplete="off">
-                    </label>
-                  </div>
-                  <div class="table-controls-group">
-                    <label class="table-control-field">
-                      <span>ID de reserva</span>
-                      <input type="text" id="misSolicitudesId" name="reservaId" placeholder="BH00000000" autocomplete="off">
-                    </label>
-                  </div>
-                  <button type="button" id="misSolicitudesFiltersReset" class="btn btn-ghost">Limpiar filtros</button>
-                </div>
-                <div class="table-header-actions">
-                  <button type="button" id="downloadMisSolicitudesCsv" class="btn btn-secondary" disabled>Descargar CSV</button>
                 </div>
                 <div class="table-wrapper">
                   <table class="dashboard-table">
