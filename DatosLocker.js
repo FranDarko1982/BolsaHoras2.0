@@ -7,7 +7,10 @@ function unificarDatosLocker() {
   const EMP_COL_INSERT_AT = 10; // Insertar NºEmpleado en K (0-based)
   const CAMPAÑA_COL_INDEX = 0;  // Columna A (0-based), usada para filtrar "teletrabajo"
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  // ID de la hoja de cálculo. Es más robusto usar openById para activadores.
+  const SPREADSHEET_ID = '1g3K7lGBzD-KfAg8xpyW0RtbkfSYd-sAwcGo-zXSIDC0';
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (!ss) throw new Error(`No se pudo abrir la hoja de cálculo con ID: ${SPREADSHEET_ID}`);
 
   // === 1) Mapa email -> NºEmpleado desde la hoja externa ===
   const externalSS = SpreadsheetApp.openById(EXTERNAL_ID);
