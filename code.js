@@ -388,6 +388,14 @@ function _reservarHora(tipo, sheetResObj, campania, startISO) {
   // Envío de email de confirmación
   sendConfirmationEmail(tipo, campania, ini, franja.split('-')[0], franja.split('-')[1], 1, email, reservaId);
 
+  if (tipo === 'Cobrar') {
+    return [
+      'Tu solicitud se ha enviado correctamente.',
+      `ID de la solicitud: ${reservaId}`,
+      'Debe esperar la confirmación por parte de su campaña antes de que la solicitud sea efectiva.'
+    ].join('\n');
+  }
+
   return `Solicitud registrada para ${campania} ${franja} (${fechaSoloTexto}) [${tipo}]. ID de reserva: ${reservaId}`;
 }
 
@@ -450,6 +458,14 @@ function _reservarVariasHoras(tipo, sheetResObj, campania, startISO, horas) {
 
   // Envío de email
   sendConfirmationEmail(tipo, campania, ini, primerFranja, ultimaFranja, horas, email, reservaId);
+
+  if (tipo === 'Cobrar') {
+    return [
+      'Tu solicitud se ha enviado correctamente.',
+      `ID de la solicitud: ${reservaId}`,
+      'Debe esperar la confirmación por parte de su campaña antes de que la solicitud sea efectiva.'
+    ].join('\n');
+  }
 
   return `Solicitud registrada para ${campania} ${fechaTexto} de ${primerFranja} a ${ultimaFranja} (${horas}h) [${tipo}]. ID de reserva: ${reservaId}. Se ha enviado un email de confirmación.`;
 }
@@ -545,6 +561,41 @@ function sendConfirmationEmail(tipo, campania, ini, primer, ultima, horas, email
   const fechaLarga = `Madrid, a ${Utilities.formatDate(ini, tz, 'd')} de ${getNombreMes(ini.getMonth())} de ${ini.getFullYear()}`;
   const horario    = `${primer} - ${ultima}`;
   const idHtml     = reservaId ? `<li><b>ID de reserva:</b> ${reservaId}</li>` : '';
+  const esCobrar   = tipo === 'Cobrar';
+
+  const introduccionHtml = esCobrar
+    ? `
+      <div style="margin-bottom:16px;">
+        Desde <span style="color:#C9006C; font-weight:bold;">Intelcia Spanish Region</span> te informamos que tu solicitud se ha registrado correctamente.
+      </div>
+      <div style="margin-bottom:16px;">
+        <b>ID de la solicitud:</b> ${reservaId}.
+      </div>
+      <div style="margin-bottom:16px;">
+        Debe esperar la confirmación por parte de su campaña antes de que la solicitud sea efectiva.
+      </div>
+      <div style="margin-bottom:16px;">
+        Te recordamos la petición que has realizado:
+      </div>`
+    : `
+      <div style="margin-bottom:16px;">
+        Desde <span style="color:#C9006C; font-weight:bold;">Intelcia Spanish Region</span> te informamos que tu solicitud ha sido aceptada. Te recordamos la petición que has realizado:
+      </div>`;
+
+  const notaFinalHtml = esCobrar
+    ? `
+      <div style="font-size:15px; margin:14px 0 16px; color:#222;">
+        Puedes cancelar esta solicitud hasta un día antes de la fecha que solicitaste trabajar o librar. Te recordamos que debes esperar la confirmación por parte de tu campaña antes de que la solicitud sea efectiva.
+        Además, puedes realizar una nueva petición desde la aplicación 
+        <span style="color:#C9006C; font-weight:bold;">Bolsa de horas</span> 
+        <a href="${URL_APP}" style="color:#C9006C; text-decoration:underline;">(enlace a la aplicación)</a>.
+      </div>`
+    : `
+      <div style="font-size:15px; margin:14px 0 16px; color:#222;">
+        Puedes cancelar esta solicitud hasta un día antes de la fecha que solicitaste trabajar o librar. Te recordamos que puedes realizar una nueva petición desde la aplicación 
+        <span style="color:#C9006C; font-weight:bold;">Bolsa de horas</span> 
+        <a href="${URL_APP}" style="color:#C9006C; text-decoration:underline;">(enlace a la aplicación)</a>.
+      </div>`;
 
   const body = `
     <div style="font-family: Calibri, Arial, sans-serif; max-width:650px; margin:0 auto; background:#fff;">
@@ -554,9 +605,7 @@ function sendConfirmationEmail(tipo, campania, ini, primer, ultima, horas, email
       <div style="color:#222; font-size:16px; margin-bottom:24px;">
         En ${fechaLarga}
       </div>
-      <div style="margin-bottom:16px;">
-        Desde <span style="color:#C9006C; font-weight:bold;">Intelcia Spanish Region</span> te informamos que tu solicitud ha sido aceptada. Te recordamos la petición que has realizado:
-      </div>
+      ${introduccionHtml}
       <ul style="color:#C9006C; font-size:16px; margin-left:32px;">
         ${idHtml}
         <li><b>Campaña:</b> ${campania}</li>
@@ -564,11 +613,7 @@ function sendConfirmationEmail(tipo, campania, ini, primer, ultima, horas, email
         <li><b>Horario:</b> ${horario}</li>
         <li><b>Horas:</b> ${horas}</li>
       </ul>
-      <div style="font-size:15px; margin:14px 0 16px; color:#222;">
-        Puedes cancelar esta solicitud hasta un día antes de la fecha que solicitaste trabajar o librar. Te recordamos que puedes realizar una nueva petición desde la aplicación 
-        <span style="color:#C9006C; font-weight:bold;">Bolsa de horas</span> 
-        <a href="${URL_APP}" style="color:#C9006C; text-decoration:underline;">(enlace a la aplicación)</a>.
-      </div>
+      ${notaFinalHtml}
       <div style="margin-top:24px; font-size:15px;">Gracias</div>
     </div>
   `;
