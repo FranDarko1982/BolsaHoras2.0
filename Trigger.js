@@ -54,6 +54,11 @@ function onEdit(e) {
     const correo  = datos[idxCorreo-1];
     const validacion = datos[idxVal-1];
     let tipoReserva = '';
+    const tz = (typeof getAppTimeZone === 'function')
+      ? getAppTimeZone()
+      : (typeof ss.getSpreadsheetTimeZone === 'function'
+        ? ss.getSpreadsheetTimeZone()
+        : Session.getScriptTimeZone());
 
     // Tipo según columna "Tipo"
     if (name === SHEET_TRABAJAR) {
@@ -86,7 +91,7 @@ function onEdit(e) {
       // Solo enviar email si valor es KO
       if (valor && valor.toUpperCase().trim() === 'KO') {
         // Enviar email de cancelación
-        const fechaFmt = Utilities.formatDate(new Date(fecha), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+        const fechaFmt = Utilities.formatDate(new Date(fecha), tz, 'dd/MM/yyyy');
         let cuerpoHTML = `
           <div style="font-family:Segoe UI,Arial,sans-serif; font-size:1.13em;">
             <p>¡Hola!</p>
@@ -137,7 +142,7 @@ function onEdit(e) {
       // Solo enviar email si la edición fue en columna Correo o en alguna columna clave que complete la reserva
       // Para simplificar, enviamos email si la fila cumple condiciones y la edición no fue en Validación (ya descartado)
 
-      const fechaFmt = Utilities.formatDate(new Date(fecha), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+      const fechaFmt = Utilities.formatDate(new Date(fecha), tz, 'dd/MM/yyyy');
       let cuerpoHTML = `
         <div style="font-family:Segoe UI,Arial,sans-serif; font-size:1.13em;">
           <p>¡Hola!</p>

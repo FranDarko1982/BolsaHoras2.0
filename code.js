@@ -42,6 +42,12 @@ const sheetDatosLocker = ss.getSheetByName(SHEET_DATOS_LOCKER);
 const sheetAdmin       = ss.getSheetByName(SHEET_ADMIN);
 const SHEET_RES_COBRAR_NAME = sheetResCobrar ? sheetResCobrar.getName() : SHEET_RES_COBRAR;
 
+const APP_TIMEZONE = ss.getSpreadsheetTimeZone() || Session.getScriptTimeZone();
+
+function getAppTimeZone() {
+  return APP_TIMEZONE || Session.getScriptTimeZone();
+}
+
 /************************************************************
  *  CONFIGURACIÓN: campañas que pueden COBRAR
  ************************************************************/
@@ -210,7 +216,6 @@ function getHorasDisponiblesLibrar(campania, startISO, endISO) {
 
 // FUNCIÓN AUXILIAR REUTILIZABLE
 function _getHorasDisponibles(sheetHorasObj, sheetResObj, campania, startISO, endISO) {
-  const tz    = Session.getScriptTimeZone();
   const start = new Date(startISO);
   const end   = new Date(endISO);
 
@@ -265,7 +270,7 @@ function _getHorasDisponibles(sheetHorasObj, sheetResObj, campania, startISO, en
  ************************************************************/
 
 function comprobarDisponibilidadContinua(sheetHorasObj, campania, startISO, horas) {
-  const tz  = Session.getScriptTimeZone();
+  const tz  = getAppTimeZone();
   const ini = new Date(startISO);
   const fechaStr = Utilities.formatDate(ini, tz, 'dd/MM/yyyy');
 
@@ -350,7 +355,7 @@ function reservarVariasHorasLibrar(campania, startISO, horas) {
 
 // FUNCIÓN AUXILIAR RESERVA 1
 function _reservarHora(tipo, sheetResObj, campania, startISO) {
-  const tz   = Session.getScriptTimeZone();
+  const tz   = getAppTimeZone();
   const ini  = new Date(startISO);
   const fin  = new Date(ini.getTime() + 3600000);
   const franja = Utilities.formatDate(ini, tz, 'HH:00') + '-' +
@@ -403,7 +408,7 @@ function _reservarHora(tipo, sheetResObj, campania, startISO) {
  *  4b) RESERVAR VARIAS HORAS (LIBRAR/TRABAJAR/COBRAR)
  ************************************************************/
 function _reservarVariasHoras(tipo, sheetResObj, campania, startISO, horas) {
-  const tz    = Session.getScriptTimeZone();
+  const tz    = getAppTimeZone();
   const ini   = new Date(startISO);
   const email = Session.getActiveUser().getEmail() || '';
   const sh    = sheetResObj;
@@ -556,7 +561,7 @@ function toSerialDate(date) {
 function sendConfirmationEmail(tipo, campania, ini, primer, ultima, horas, email, reservaId) {
   if (!email || email.indexOf('@') < 0) return;
 
-  const tz         = Session.getScriptTimeZone();
+  const tz         = getAppTimeZone();
   const asunto     = `Solicitud registrada – Bolsa de horas (${tipo})`;
   const fechaLarga = `Madrid, a ${Utilities.formatDate(ini, tz, 'd')} de ${getNombreMes(ini.getMonth())} de ${ini.getFullYear()}`;
   const horario    = `${primer} - ${ultima}`;
@@ -649,7 +654,7 @@ function _cancelarReservaEnHoja(sheetResObj, key) {
   // Envío de email de cancelación
   if (emailUsuario && String(emailUsuario).indexOf('@') > -1) {
     const hoy        = new Date();
-    const tz         = Session.getScriptTimeZone();
+    const tz         = getAppTimeZone();
     const fechaLarga = `Madrid, a ${Utilities.formatDate(hoy, tz, 'd')} de ${getNombreMes(hoy.getMonth())} de ${hoy.getFullYear()}`;
     const asunto     = "Solicitud cancelada – Bolsa de horas";
 
@@ -786,7 +791,7 @@ function _normalizeEditarPayload(payload) {
     throw new Error('No se pudo interpretar la fecha de la solicitud.');
   }
 
-  const tz = Session.getScriptTimeZone();
+  const tz = getAppTimeZone();
   const totalMinutes = Math.round(horas * 60);
   const end = new Date(start.getTime() + totalMinutes * 60000);
 
@@ -899,7 +904,7 @@ function getMisReservas() {
 }
 
 function getSolicitudesAcumuladas() {
-  const tz = Session.getScriptTimeZone();
+  const tz = getAppTimeZone();
   const { email, isAdmin } = getUserContext();
 
   if (!email && !isAdmin) {
@@ -952,7 +957,7 @@ function _getMisReservasDeHoja(sh, email, tipoPeticion) {
     .map(r => ({
       campania       : r[C_CAM],
       fecha          : (r[C_FEC] instanceof Date)
-                        ? Utilities.formatDate(r[C_FEC], Session.getScriptTimeZone(), 'dd/MM/yyyy')
+                        ? Utilities.formatDate(r[C_FEC], getAppTimeZone(), 'dd/MM/yyyy')
                         : String(r[C_FEC] || ''),
       horas          : r[C_HOR],
       franja         : r[C_FRA],
@@ -1060,7 +1065,7 @@ function getNombreMes(numeroMes) {
 }
 
 function getInicioDashboardData() {
-  const tz = Session.getScriptTimeZone();
+  const tz = getAppTimeZone();
   const hoy = _normalizeDate(new Date());
   const { email, isAdmin, role } = getUserContext();
 
