@@ -10,12 +10,15 @@ const SHEET_HORAS_LIBRAR   = 'Horas librar';
 const SHEET_RES_LIBRAR     = 'bbdd reservas horas librar';
 const SHEET_DATOS_LOCKER   = 'Datos Locker';
 const SHEET_ADMIN          = 'admin';
+const SHEET_EMPLEADOS      = 'Empleados';
 
 const RESERVA_ID_PROP_KEY = 'RESERVA_ID_COUNTER';
 
 const ROLE = {
   ADMIN: 'admin',
-  USER : 'user'
+  GESTOR: 'gestor',
+  USER : 'usuario',
+  USUARIO: 'usuario'
 };
 
 // ÍNDICES
@@ -40,6 +43,7 @@ const sheetResLibrar   = ss.getSheetByName(SHEET_RES_LIBRAR)                 || 
 const sheetDatosLocker = ss.getSheetByName(SHEET_DATOS_LOCKER);
 
 const sheetAdmin       = ss.getSheetByName(SHEET_ADMIN);
+const sheetEmpleados   = ss.getSheetByName(SHEET_EMPLEADOS);
 const SHEET_RES_COBRAR_NAME = sheetResCobrar ? sheetResCobrar.getName() : SHEET_RES_COBRAR;
 
 const APP_TIMEZONE = ss.getSpreadsheetTimeZone() || Session.getScriptTimeZone();
@@ -60,7 +64,20 @@ function toLocalIso(dt) {
 const SHEET_CONFIG_COBRAR = 'CONFIG_cobrar';
 
 function puedeCobrarCampania(campania) {
-  if (!campania) return false;
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
+
+  let targetCampania;
+  try {
+    targetCampania = resolveCampaniaForContext(campania, context);
+  } catch (err) {
+    if (context.isAdmin) {
+      throw err;
+    }
+    return false;
+  }
+
+  if (!targetCampania) return false;
 
   const sh = ss.getSheetByName(SHEET_CONFIG_COBRAR);
   if (!sh) return false;
@@ -71,15 +88,120 @@ function puedeCobrarCampania(campania) {
 
   const valores = sh.getRange(2, 1, lastRow - 1, 1).getValues().flat();
   const listaCampanias = valores
-    .map(v => String(v || '').trim().toLowerCase())
+    .map(v => normalizeCampaniaValue(v))
     .filter(Boolean);
 
-  return listaCampanias.includes(String(campania).trim().toLowerCase());
+  return listaCampanias.includes(normalizeCampaniaValue(targetCampania));
 }
 
 /************************************************************
  *  Helper: contexto de usuario y roles
  ************************************************************/
+function normalizeString(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normalizeCampaniaValue(value) {
+  return normalizeString(value);
+}
+
+function parseCampaniaList(value) {
+  if (value == null) return [];
+  return String(value)
+    .split(/[\n,;|]+/)
+    .map(part => part.trim())
+    .filter(Boolean);
+}
+
+let empleadosHeaderInfoCache = null;
+
+function getEmpleadosHeaderInfo() {
+  if (!sheetEmpleados) return null;
+  if (empleadosHeaderInfoCache) return empleadosHeaderInfoCache;
+
+  const lastColumn = sheetEmpleados.getLastColumn();
+  if (!lastColumn) return null;
+
+  const headers = sheetEmpleados.getRange(1, 1, 1, lastColumn).getValues()[0] || [];
+  const headerMap = headers.reduce((acc, header, index) => {
+    const key = _normalizeHeaderName(header);
+    if (key) acc[key] = index;
+    return acc;
+  }, {});
+
+  const info = {
+    headers,
+    totalColumns: lastColumn,
+    colEmpleado: _getFirstMatchingIndex(headerMap, [
+      'empleado',
+      'numempleado',
+      'numeroempleado',
+      'nºempleado',
+      'nempleado',
+      'idempleado'
+    ]),
+    colCorreo: _getFirstMatchingIndex(headerMap, ['correo', 'email', 'mail']),
+    colCampania: _getFirstMatchingIndex(headerMap, ['campana', 'campaña']),
+    colRol: _getFirstMatchingIndex(headerMap, ['rol', 'role'])
+  };
+
+  empleadosHeaderInfoCache = info;
+  return info;
+}
+
+function findEmpleadoRecordByEmail(email) {
+  if (!sheetEmpleados) return null;
+  const normalizedEmail = normalizeString(email);
+  if (!normalizedEmail) return null;
+
+  const info = getEmpleadosHeaderInfo();
+  if (!info || info.colCorreo == null || info.colCorreo < 0) return null;
+
+  const lastRow = sheetEmpleados.getLastRow();
+  if (lastRow < 2) return null;
+
+  const values = sheetEmpleados
+    .getRange(2, 1, lastRow - 1, info.totalColumns)
+    .getValues();
+
+  for (let i = 0; i < values.length; i++) {
+    const row = values[i];
+    const rawCorreo = row[info.colCorreo];
+    const correo = normalizeString(rawCorreo);
+    if (!correo) continue;
+    if (correo === normalizedEmail) {
+      return {
+        empleado: info.colEmpleado >= 0 ? row[info.colEmpleado] : '',
+        correo: rawCorreo,
+        campania: info.colCampania >= 0 ? row[info.colCampania] : '',
+        rol: info.colRol >= 0 ? row[info.colRol] : ''
+      };
+    }
+  }
+
+  return null;
+}
+
+function normalizeRoleValue(value) {
+  const normalized = normalizeString(value);
+  if (!normalized) return '';
+  if (
+    normalized === 'admin' ||
+    normalized === 'administrador' ||
+    normalized === 'administrator'
+  ) {
+    return ROLE.ADMIN;
+  }
+  if (
+    normalized === 'gestor' ||
+    normalized === 'manager' ||
+    normalized === 'coordinador'
+  ) {
+    return ROLE.GESTOR;
+  }
+  return ROLE.USER;
+}
+
 function getCurrentUserEmail() {
   try {
     return (Session.getActiveUser().getEmail() || '').trim().toLowerCase();
@@ -94,36 +216,163 @@ function getAdminEmails() {
   if (lastRow < 2) return [];
   const values = sheetAdmin.getRange(2, 1, lastRow - 1, 1).getValues();
   return values
-    .map(row => String(row[0] || '').trim().toLowerCase())
+    .map(row => normalizeString(row[0]))
     .filter(Boolean);
 }
 
 function userHasAdminRole(email) {
   if (!email) return false;
   const admins = getAdminEmails();
-  return admins.includes(email.toLowerCase());
+  return admins.includes(normalizeString(email));
 }
 
 function getUserContext() {
   const email = getCurrentUserEmail();
-  const isAdmin = userHasAdminRole(email);
-  return {
-    email,
+  const normalizedEmail = normalizeString(email);
+  const adminByList = userHasAdminRole(email);
+
+  const empleadoRecord = normalizedEmail ? findEmpleadoRecordByEmail(normalizedEmail) : null;
+  const roleFromEmpleado = empleadoRecord ? normalizeRoleValue(empleadoRecord.rol) : '';
+  const assignedCampaniasRaw = empleadoRecord ? parseCampaniaList(empleadoRecord.campania) : [];
+
+  const uniqueCampaniasMap = new Map();
+  assignedCampaniasRaw.forEach(campania => {
+    const normalized = normalizeCampaniaValue(campania);
+    if (!normalized) return;
+    if (!uniqueCampaniasMap.has(normalized)) {
+      uniqueCampaniasMap.set(normalized, campania);
+    }
+  });
+
+  const assignedCampanias = Array.from(uniqueCampaniasMap.values());
+  const normalizedCampanias = Array.from(uniqueCampaniasMap.keys());
+
+  let role = ROLE.USER;
+  if (adminByList || roleFromEmpleado === ROLE.ADMIN) {
+    role = ROLE.ADMIN;
+  } else if (roleFromEmpleado === ROLE.GESTOR) {
+    role = ROLE.GESTOR;
+  }
+
+  const isAdmin = role === ROLE.ADMIN;
+  const context = {
+    email: normalizedEmail,
     isAdmin,
-    role: isAdmin ? ROLE.ADMIN : ROLE.USER
+    role,
+    isGestor: role === ROLE.GESTOR,
+    campania: assignedCampanias[0] || '',
+    campanias: assignedCampanias,
+    campaniasNormalizadas: normalizedCampanias,
+    empleadoId: empleadoRecord ? String(empleadoRecord.empleado || '').trim() : '',
+    authorized: Boolean(normalizedEmail && (isAdmin || assignedCampanias.length > 0))
   };
+
+  return context;
+}
+
+function ensureAuthorizedContext(context) {
+  if (!context || (!context.authorized && !context.isAdmin)) {
+    throw new Error('No tienes permisos para acceder a esta aplicación. Contacta con tu responsable.');
+  }
+}
+
+function getContextAllowedCampanias(context) {
+  if (!context || context.isAdmin) return [];
+  if (Array.isArray(context.campanias) && context.campanias.length) {
+    return context.campanias.slice();
+  }
+  if (context.campania) {
+    return [context.campania];
+  }
+  return [];
+}
+
+function getContextAllowedCampaniasNormalized(context) {
+  if (!context || context.isAdmin) return [];
+  if (Array.isArray(context.campaniasNormalizadas) && context.campaniasNormalizadas.length) {
+    return context.campaniasNormalizadas.slice();
+  }
+  const single = normalizeCampaniaValue(context.campania);
+  return single ? [single] : [];
+}
+
+function resolveCampaniaForContext(campania, context, options) {
+  const opts = options || {};
+  const requestedNormalized = normalizeCampaniaValue(campania);
+  if (!context || context.isAdmin) {
+    return campania;
+  }
+
+  const allowed = getContextAllowedCampanias(context);
+  const allowedNormalized = getContextAllowedCampaniasNormalized(context);
+
+  if (!allowedNormalized.length) {
+    if (opts.allowEmpty && !requestedNormalized) {
+      return '';
+    }
+    throw new Error('No tienes ninguna campaña asignada. Contacta con tu responsable.');
+  }
+
+  if (!requestedNormalized) {
+    return allowed[0];
+  }
+
+  const idx = allowedNormalized.indexOf(requestedNormalized);
+  if (idx === -1) {
+    throw new Error('No tienes permisos para operar sobre la campaña seleccionada.');
+  }
+  return allowed[idx] || allowed[0];
+}
+
+function isCampaniaAllowedForContext(context, campania) {
+  if (!context) return false;
+  if (context.isAdmin) return true;
+  const normalized = normalizeCampaniaValue(campania);
+  if (!normalized) return false;
+  const allowedNormalized = getContextAllowedCampaniasNormalized(context);
+  return allowedNormalized.includes(normalized);
+}
+
+function canAccessReserva(context, reserva) {
+  if (!context || !reserva) return false;
+  if (context.isAdmin) return true;
+  const correoNormalizado = normalizeString(reserva.correo);
+  const campaniaNormalizada = normalizeCampaniaValue(reserva.campania);
+  const tieneCampania = Boolean(campaniaNormalizada);
+  const campaniaPermitida = tieneCampania
+    ? isCampaniaAllowedForContext(context, reserva.campania)
+    : !context.isGestor;
+
+  if (!campaniaPermitida) return false;
+
+  if (context.isGestor) {
+    return true;
+  }
+
+  return !!correoNormalizado && correoNormalizado === context.email;
+}
+
+function assertReservaAccess(context, campania, correo) {
+  if (!canAccessReserva(context, { campania, correo })) {
+    throw new Error('No tienes permisos para operar sobre esta solicitud.');
+  }
 }
 
 function getAccessContext() {
-  const { role, email } = getUserContext();
+  const context = getUserContext();
   const baseSections = ['inicio', 'calendario', 'mis-reservas', 'ayuda'];
-  const sections = role === ROLE.ADMIN
+  const sections = context.isAdmin
     ? [...baseSections.slice(0, 3), 'reportes', ...baseSections.slice(3)]
     : baseSections;
 
   return {
-    role,
-    email,
+    role: context.role,
+    email: context.email,
+    isAdmin: context.isAdmin,
+    isGestor: context.isGestor,
+    campania: context.campania,
+    campanias: context.campanias,
+    authorized: context.authorized,
     sections
   };
 }
@@ -187,41 +436,125 @@ function getFirstFreeRow(sh) {
  *  2) LISTA ÚNICA DE CAMPAÑAS
  ************************************************************/
 function getCampanias() {
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
+
   const sh = sheetHoras;
   if (!sh) throw new Error("No se ha encontrado la hoja 'Horas trabajar'");
-  const vals = sh.getRange(2, COL.CAMPAÑA + 1,
-              sh.getLastRow() - 1, 1)
-    .getValues()
-    .flat();
-  return [...new Set(vals)].filter(c => c).sort();
+  const lastRow = sh.getLastRow();
+  let vals = [];
+  if (lastRow >= 2) {
+    vals = sh
+      .getRange(2, COL.CAMPAÑA + 1, lastRow - 1, 1)
+      .getValues()
+      .flat()
+      .map(value => String(value || '').trim())
+      .filter(Boolean);
+  }
+
+  const uniqueSheetValues = Array.from(new Set(vals));
+  if (context.isAdmin) {
+    return uniqueSheetValues.sort();
+  }
+
+  const allowed = getContextAllowedCampanias(context);
+  const allowedNormalized = getContextAllowedCampaniasNormalized(context);
+  if (!allowedNormalized.length) {
+    return [];
+  }
+
+  const result = [];
+  allowed.forEach(campaniaPermitida => {
+    const normalizedPermitida = normalizeCampaniaValue(campaniaPermitida);
+    if (!normalizedPermitida) return;
+    const match = uniqueSheetValues.find(
+      item => normalizeCampaniaValue(item) === normalizedPermitida
+    );
+    const valueToUse = match || campaniaPermitida;
+    const alreadyIncluded = result.some(
+      existing => normalizeCampaniaValue(existing) === normalizedPermitida
+    );
+    if (!alreadyIncluded) {
+      result.push(valueToUse);
+    }
+  });
+
+  return result;
 }
 
 function getCampaniasLibrar() {
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
+
   const sh = sheetHorasLibrar;
   if (!sh) throw new Error("No se ha encontrado la hoja 'Horas librar'");
-  const vals = sh.getRange(2, COL.CAMPAÑA + 1,
-              sh.getLastRow() - 1, 1)
-    .getValues()
-    .flat();
-  return [...new Set(vals)].filter(c => c).sort();
+  const lastRow = sh.getLastRow();
+  let vals = [];
+  if (lastRow >= 2) {
+    vals = sh
+      .getRange(2, COL.CAMPAÑA + 1, lastRow - 1, 1)
+      .getValues()
+      .flat()
+      .map(value => String(value || '').trim())
+      .filter(Boolean);
+  }
+
+  const uniqueSheetValues = Array.from(new Set(vals));
+  if (context.isAdmin) {
+    return uniqueSheetValues.sort();
+  }
+
+  const allowed = getContextAllowedCampanias(context);
+  const allowedNormalized = getContextAllowedCampaniasNormalized(context);
+  if (!allowedNormalized.length) {
+    return [];
+  }
+
+  const result = [];
+  allowed.forEach(campaniaPermitida => {
+    const normalizedPermitida = normalizeCampaniaValue(campaniaPermitida);
+    if (!normalizedPermitida) return;
+    const match = uniqueSheetValues.find(
+      item => normalizeCampaniaValue(item) === normalizedPermitida
+    );
+    const valueToUse = match || campaniaPermitida;
+    const alreadyIncluded = result.some(
+      existing => normalizeCampaniaValue(existing) === normalizedPermitida
+    );
+    if (!alreadyIncluded) {
+      result.push(valueToUse);
+    }
+  });
+
+  return result;
 }
 
 /************************************************************
  *  3) HORAS DISPONIBLES - TRABAJAR
  ************************************************************/
 function getHorasDisponibles(campania, startISO, endISO) {
-  return _getHorasDisponibles(sheetHoras, sheetResTrabajar, campania, startISO, endISO);
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
+  const resolvedCampania = resolveCampaniaForContext(campania, context, { allowEmpty: true });
+  return _getHorasDisponibles(sheetHoras, sheetResTrabajar, resolvedCampania, startISO, endISO, context);
 }
 
 /************************************************************
  *  3b) HORAS DISPONIBLES - LIBRAR
  ************************************************************/
 function getHorasDisponiblesLibrar(campania, startISO, endISO) {
-  return _getHorasDisponibles(sheetHorasLibrar, sheetResLibrar, campania, startISO, endISO);
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
+  const resolvedCampania = resolveCampaniaForContext(campania, context, { allowEmpty: true });
+  return _getHorasDisponibles(sheetHorasLibrar, sheetResLibrar, resolvedCampania, startISO, endISO, context);
 }
 
 // FUNCIÓN AUXILIAR REUTILIZABLE
-function _getHorasDisponibles(sheetHorasObj, sheetResObj, campania, startISO, endISO) {
+function _getHorasDisponibles(sheetHorasObj, sheetResObj, campania, startISO, endISO, context) {
+  const ctx = context || getUserContext();
+  ensureAuthorizedContext(ctx);
+  const normalizedCampania = normalizeCampaniaValue(campania);
+
   const start = new Date(startISO);
   const end   = new Date(endISO);
 
@@ -230,7 +563,16 @@ function _getHorasDisponibles(sheetHorasObj, sheetResObj, campania, startISO, en
   const eventos = [];
 
   rows.forEach(r => {
-    if (campania && r[COL.CAMPAÑA] !== campania) return;
+    const rawCampania = String(r[COL.CAMPAÑA] || '').trim();
+    const rowCampaniaNormalized = normalizeCampaniaValue(rawCampania);
+
+    if (normalizedCampania) {
+      if (rowCampaniaNormalized !== normalizedCampania) return;
+    } else if (!ctx.isAdmin) {
+      if (!isCampaniaAllowedForContext(ctx, rawCampania)) {
+        return;
+      }
+    }
 
     const fechaStr    = r[COL.FECHA];    // "dd/MM/yyyy" o Date
     const franja      = r[COL.FRANJA];   // "08:00-09:00"
@@ -280,6 +622,13 @@ function _getHorasDisponibles(sheetHorasObj, sheetResObj, campania, startISO, en
  ************************************************************/
 
 function comprobarDisponibilidadContinua(sheetHorasObj, campania, startISO, horas) {
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
+  const resolvedCampania = resolveCampaniaForContext(campania, context, {
+    allowEmpty: context.isAdmin
+  });
+  const normalizedCampania = normalizeCampaniaValue(resolvedCampania);
+
   const tz  = getAppTimeZone();
   const ini = new Date(startISO);
   const fechaStr = Utilities.formatDate(ini, tz, 'dd/MM/yyyy');
@@ -291,7 +640,13 @@ function comprobarDisponibilidadContinua(sheetHorasObj, campania, startISO, hora
   for (let i = 1; i < datos.length; i++) { // saltar encabezado
     const r = datos[i];
 
-    if (campania && r[COL.CAMPAÑA] !== campania) continue;
+    if (normalizedCampania) {
+      const rowCampaniaNormalized = normalizeCampaniaValue(r[COL.CAMPAÑA]);
+      if (rowCampaniaNormalized !== normalizedCampania) continue;
+    } else if (!context.isAdmin) {
+      const rawCampania = String(r[COL.CAMPAÑA] || '').trim();
+      if (!isCampaniaAllowedForContext(context, rawCampania)) continue;
+    }
 
     // Normalizar la fecha de la celda a dd/MM/yyyy
     const celdaFecha = r[COL.FECHA];
@@ -341,6 +696,8 @@ function _normalizarFranja(franja) {
  *  4) RESERVAR UNA O VARIAS HORAS (TRABAJAR)
  ************************************************************/
 function reservarVariasHoras(campania, startISO, horas) {
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
   let startDate;
   if (typeof startISO === 'number') {
     startDate = new Date(startISO);
@@ -352,13 +709,16 @@ function reservarVariasHoras(campania, startISO, horas) {
   if (Number.isNaN(startDate.getTime())) {
     throw new Error('Parámetro startISO inválido');
   }
-  return _reservarVariasHoras('Trabajar', sheetResTrabajar, campania, startDate, horas);
+  const resolvedCampania = resolveCampaniaForContext(campania, context);
+  return _reservarVariasHoras('Trabajar', sheetResTrabajar, resolvedCampania, startDate, horas, context);
 }
 
 /************************************************************
  *  4c) RESERVAR VARIAS HORAS (COBRAR)
  ************************************************************/
 function reservarVariasHorasCobrar(campania, startISO, horas) {
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
   let startDate;
   if (typeof startISO === 'number') {
     startDate = new Date(startISO);
@@ -370,16 +730,22 @@ function reservarVariasHorasCobrar(campania, startISO, horas) {
   if (Number.isNaN(startDate.getTime())) {
     throw new Error('Parámetro startISO inválido');
   }
-  return _reservarVariasHoras('Cobrar', sheetResCobrar, campania, startDate, horas);
+  const resolvedCampania = resolveCampaniaForContext(campania, context);
+  return _reservarVariasHoras('Cobrar', sheetResCobrar, resolvedCampania, startDate, horas, context);
 }
 
 /************************************************************
  *  4b) RESERVAR UNA O VARIAS HORAS (LIBRAR)
  ************************************************************/
 function reservarHoraLibrar(campania, startISO) {
-  return _reservarHora('Librar', sheetResLibrar, campania, startISO);
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
+  const resolvedCampania = resolveCampaniaForContext(campania, context);
+  return _reservarHora('Librar', sheetResLibrar, resolvedCampania, startISO, context);
 }
 function reservarVariasHorasLibrar(campania, startISO, horas) {
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
   let startDate;
   if (typeof startISO === 'number') {
     startDate = new Date(startISO);
@@ -391,11 +757,16 @@ function reservarVariasHorasLibrar(campania, startISO, horas) {
   if (Number.isNaN(startDate.getTime())) {
     throw new Error('Parámetro startISO inválido');
   }
-  return _reservarVariasHoras('Librar', sheetResLibrar, campania, startDate, horas);
+  const resolvedCampania = resolveCampaniaForContext(campania, context);
+  return _reservarVariasHoras('Librar', sheetResLibrar, resolvedCampania, startDate, horas, context);
 }
 
 // FUNCIÓN AUXILIAR RESERVA 1
-function _reservarHora(tipo, sheetResObj, campania, startISO) {
+function _reservarHora(tipo, sheetResObj, campania, startISO, context) {
+  const ctx = context || getUserContext();
+  ensureAuthorizedContext(ctx);
+  const resolvedCampania = resolveCampaniaForContext(campania, ctx);
+
   const tz   = getAppTimeZone();
   const ini  = new Date(startISO);
   const fin  = new Date(ini.getTime() + 3600000);
@@ -405,10 +776,10 @@ function _reservarHora(tipo, sheetResObj, campania, startISO) {
     (Date.UTC(ini.getFullYear(), ini.getMonth(), ini.getDate()) -
      Date.UTC(1899, 11, 30)) / 86400000
   );
-  const email = Session.getActiveUser().getEmail() || '';
+  const email = ctx.email || Session.getActiveUser().getEmail() || '';
   const fechaSoloTexto = Utilities.formatDate(ini, tz, 'dd/MM/yyyy');
   const tipoKey = (tipo === 'Cobrar') ? 'Trabajar' : tipo;
-  const keyReserva = campania + fechaSerial + franja + email + tipoKey;
+  const keyReserva = resolvedCampania + fechaSerial + franja + email + tipoKey;
   const reservaId = generateReservaId();
 
   // Hoja de reservas (usamos la hoja cacheada)
@@ -422,7 +793,7 @@ function _reservarHora(tipo, sheetResObj, campania, startISO) {
   // Insertar en la primera fila libre
   const targetRow = getFirstFreeRow(sh);
   sh.getRange(targetRow, 1, 1, 7).setValues([[
-    campania,
+    resolvedCampania,
     fechaSoloTexto,
     1,
     franja,
@@ -433,7 +804,7 @@ function _reservarHora(tipo, sheetResObj, campania, startISO) {
   sh.getRange(targetRow, 11).setValue(reservaId);
 
   // Envío de email de confirmación
-  sendConfirmationEmail(tipo, campania, ini, franja.split('-')[0], franja.split('-')[1], 1, email, reservaId);
+  sendConfirmationEmail(tipo, resolvedCampania, ini, franja.split('-')[0], franja.split('-')[1], 1, email, reservaId);
 
   if (tipo === 'Cobrar') {
     return [
@@ -448,14 +819,18 @@ function _reservarHora(tipo, sheetResObj, campania, startISO) {
 
 /************************************************************
  *  4b) RESERVAR VARIAS HORAS (LIBRAR/TRABAJAR/COBRAR)
- ************************************************************/
-function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas) {
+************************************************************/
+function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas, context) {
+  const ctx = context || getUserContext();
+  ensureAuthorizedContext(ctx);
+  const resolvedCampania = resolveCampaniaForContext(campania, ctx);
+
   const tz    = getAppTimeZone();
   const ini   = new Date(startDate);
   if (Number.isNaN(ini.getTime())) {
     throw new Error('Fecha de inicio inválida');
   }
-  const email = Session.getActiveUser().getEmail() || '';
+  const email = ctx.email || Session.getActiveUser().getEmail() || '';
   const sh    = sheetResObj;
   ensureReservaIdColumn(sh);
   const reservaId = generateReservaId();
@@ -464,11 +839,11 @@ function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas) {
   let sheetHorasObj = (tipo === 'Librar') ? sheetHorasLibrar : sheetHoras;
 
   // Validar si la campaña permite cobrar
-  if (tipo === 'Cobrar' && !puedeCobrarCampania(campania)) {
-    throw new Error(`La campaña "${campania}" no tiene habilitada la opción de COBRAR horas.`);
+  if (tipo === 'Cobrar' && !puedeCobrarCampania(resolvedCampania)) {
+    throw new Error(`La campaña "${resolvedCampania}" no tiene habilitada la opción de COBRAR horas.`);
   }
 
-  if (!comprobarDisponibilidadContinua(sheetHorasObj, campania, ini, horas)) {
+  if (!comprobarDisponibilidadContinua(sheetHorasObj, resolvedCampania, ini, horas)) {
     throw new Error(
       "¡Ay miarma! El tramo que has elegido no está completamente disponible, hay horas intermedias pilladas. " +
       "Prueba con otro horario o menos horas seguidas. No te me vengas arriba solicitando de gratis, ¿eh?"
@@ -485,10 +860,10 @@ function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas) {
     const fechaSolo   = Utilities.formatDate(inicio, tz, 'dd/MM/yyyy');
     const fechaSerial = toSerialDate(inicio);
     const tipoKey     = (tipo === 'Cobrar') ? 'Trabajar' : tipo;
-    const keyReserva  = `${campania}${fechaSerial}${strFranja}${email}${tipoKey}`;
+    const keyReserva  = `${resolvedCampania}${fechaSerial}${strFranja}${email}${tipoKey}`;
 
     rows.push([
-      campania,
+      resolvedCampania,
       fechaSolo,
       1,
       strFranja,
@@ -508,7 +883,7 @@ function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas) {
   sh.getRange(firstRow, 11, reservaIdValues.length, 1).setValues(reservaIdValues);
 
   // Envío de email
-  sendConfirmationEmail(tipo, campania, ini, primerFranja, ultimaFranja, horas, email, reservaId);
+  sendConfirmationEmail(tipo, resolvedCampania, ini, primerFranja, ultimaFranja, horas, email, reservaId);
 
   if (tipo === 'Cobrar') {
     return [
@@ -518,7 +893,7 @@ function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas) {
     ].join('\n');
   }
 
-  return `Solicitud registrada para ${campania} ${fechaTexto} de ${primerFranja} a ${ultimaFranja} (${horas}h) [${tipo}]. ID de reserva: ${reservaId}. Se ha enviado un email de confirmación.`;
+  return `Solicitud registrada para ${resolvedCampania} ${fechaTexto} de ${primerFranja} a ${ultimaFranja} (${horas}h) [${tipo}]. ID de reserva: ${reservaId}. Se ha enviado un email de confirmación.`;
 }
 
 // --- HELPERS EXTRAÍDOS PARA LA FUNCIÓN ANTERIOR ---
@@ -677,6 +1052,9 @@ function sendConfirmationEmail(tipo, campania, ini, primer, ultima, horas, email
  *  5) CANCELAR RESERVA (TRABAJAR, COBRAR o LIBRAR)
  ************************************************************/
 function cancelarReserva(key) {
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
+
   let ok = _cancelarReservaEnHoja(sheetResTrabajar, key);
   if (!ok) ok = _cancelarReservaEnHoja(sheetResCobrar, key);
   if (!ok) ok = _cancelarReservaEnHoja(sheetResLibrar, key);
@@ -687,13 +1065,33 @@ function _cancelarReservaEnHoja(sheetResObj, key) {
   const sh = sheetResObj;
   if (!sh) return false;
 
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
+
   // Usamos TextFinder para localizar la fila de la reserva
   const finder = sh.createTextFinder(key).matchEntireCell(true).findNext();
   if (!finder) return false;
 
   const row = finder.getRow();
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0] || [];
+  const headerMap = headers.reduce((map, header, index) => {
+    const keyHeader = String(header || '').trim();
+    if (keyHeader) map[keyHeader] = index;
+    return map;
+  }, {});
+
+  const colCampania = _findFirstIndex(headerMap, ['Campaña', 'Campana']);
+  const colCorreo = _findFirstIndex(headerMap, ['Correo', 'Email', 'Mail']);
+
+  const campania = colCampania >= 0
+    ? String(sh.getRange(row, colCampania + 1).getValue() || '').trim()
+    : '';
   // Obtener email antes de borrar
-  const emailUsuario = sh.getRange(row, /* columna "Correo" es la 6ª */ 6).getValue();
+  const emailUsuario = colCorreo >= 0
+    ? sh.getRange(row, colCorreo + 1).getValue()
+    : sh.getRange(row, /* columna "Correo" es la 6ª */ 6).getValue();
+
+  assertReservaAccess(context, campania, emailUsuario);
 
   sh.deleteRow(row);
 
@@ -735,6 +1133,9 @@ function cancelarMultiplesReservas(keys) {
   if (!Array.isArray(keys) || keys.length === 0) {
     throw new Error('No se proporcionaron identificadores de reserva para cancelar.');
   }
+
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
 
   keys.forEach(key => {
     // Intenta cancelar en las hojas conocidas, no importa si falla en alguna.
@@ -933,11 +1334,12 @@ function _actualizarSolicitudEnHoja(sheet, data) {
  *  6) MOSTRAR SOLO LAS RESERVAS DEL USUARIO LOGADO (AMBOS)
  ************************************************************/
 function getMisReservas() {
-  const { email } = getUserContext();
-  if (!email) return [];
-  const reservasTrabajar = _getMisReservasDeHoja(sheetResTrabajar, email, 'Trabajar');
-  const reservasCobrar   = _getMisReservasDeHoja(sheetResCobrar,   email, 'Cobrar');
-  const reservasLibrar   = _getMisReservasDeHoja(sheetResLibrar,   email, 'Librar');
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
+
+  const reservasTrabajar = _getMisReservasDeHoja(sheetResTrabajar, context, 'Trabajar');
+  const reservasCobrar   = _getMisReservasDeHoja(sheetResCobrar,   context, 'Cobrar');
+  const reservasLibrar   = _getMisReservasDeHoja(sheetResLibrar,   context, 'Librar');
   return [...reservasTrabajar, ...reservasCobrar, ...reservasLibrar].sort((a, b) => {
     const fA = parseDateDDMMYYYY(a.fecha);
     const fB = parseDateDDMMYYYY(b.fecha);
@@ -951,13 +1353,9 @@ function getMisReservas() {
 
 function getSolicitudesAcumuladas() {
   const tz = getAppTimeZone();
-  const { email, isAdmin } = getUserContext();
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
 
-  if (!email && !isAdmin) {
-    return [];
-  }
-
-  const normalizar = valor => String(valor || '').trim().toLowerCase();
   const todasSolicitudes = (() => {
     if (sheetDatosLocker) {
       const lockerSolicitudes = _getSolicitudesDeHoja(sheetDatosLocker, '', tz);
@@ -971,9 +1369,14 @@ function getSolicitudesAcumuladas() {
     return [...solicitudesTrabajar, ...solicitudesCobrar, ...solicitudesLibrar];
   })();
 
-  const visibles = isAdmin
-    ? todasSolicitudes
-    : todasSolicitudes.filter(item => normalizar(item.correo) === email);
+  const visibles = todasSolicitudes.filter(item => {
+    if (!item || typeof item !== 'object') return false;
+    const campaniaItem = item.campania || item.sala || '';
+    return canAccessReserva(context, {
+      campania: campaniaItem,
+      correo: item.correo
+    });
+  });
 
   return visibles
     .sort((a, b) => b._timestamp - a._timestamp || a.tipo.localeCompare(b.tipo))
@@ -988,8 +1391,11 @@ function getSolicitudesAcumuladas() {
  * @param {string} tipoReserva - 'Trabajar', 'Librar' o 'Cobrar'
  * @return {Array<Object>}
  */
-function _getMisReservasDeHoja(hoja, tipoReserva) {
+function _getMisReservasDeHoja(hoja, context, tipoReserva) {
   if (!hoja) return [];
+
+  const ctx = context || getUserContext();
+  ensureAuthorizedContext(ctx);
 
   const tz = getAppTimeZone();
   const data = hoja.getDataRange().getValues();
@@ -1007,17 +1413,18 @@ function _getMisReservasDeHoja(hoja, tipoReserva) {
   const C_ESTADO = headers.indexOf('Estado solic');
   const C_EMPLEADO = headers.indexOf('NºEmpleado');
   const C_IDRES = headers.indexOf('ID reserva');
+  const C_KEY = headers.indexOf('key');
 
-  const userEmail = _obtenerCorreoUsuario();
   const reservas = [];
 
   for (let i = 1; i < data.length; i++) {
     const r = data[i];
     const correo = (r[C_CORREO] || '').toString().trim();
+    const campania = (r[C_CAMP] || '').toString().trim();
 
-    if (!correo || correo.toLowerCase() !== userEmail.toLowerCase()) continue;
+    if (!canAccessReserva(ctx, { campania, correo })) continue;
 
-    const fechaRaw = r[C_FEC];
+    const fechaRaw = C_FEC >= 0 ? r[C_FEC] : '';
     const fechaFormateada =
       fechaRaw instanceof Date
         ? Utilities.formatDate(_normalizeDate(fechaRaw), tz, 'dd/MM/yyyy')
@@ -1025,7 +1432,7 @@ function _getMisReservasDeHoja(hoja, tipoReserva) {
 
     reservas.push({
       id: r[C_IDRES] || '',
-      campania: r[C_CAMP] || '',
+      campania,
       correo,
       empleado: r[C_EMPLEADO] || '',
       fecha: fechaFormateada,
@@ -1035,6 +1442,7 @@ function _getMisReservasDeHoja(hoja, tipoReserva) {
       estado: r[C_ESTADO] || '',
       validacion: r[C_VALID] || '',
       clave: r[C_CLAVE] || '',
+      key: C_KEY >= 0 ? String(r[C_KEY] || '').trim() : (r[C_CLAVE] || '')
     });
   }
 
@@ -1139,7 +1547,9 @@ function getNombreMes(numeroMes) {
 function getInicioDashboardData() {
   const tz = getAppTimeZone();
   const hoy = _normalizeDate(new Date());
-  const { email, isAdmin, role } = getUserContext();
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
+  const { email, isAdmin, role } = context;
 
   const chartMonths = [];
   const chartHours = {};
@@ -1195,7 +1605,8 @@ function getInicioDashboardData() {
       if (!row.some(cell => cell !== '' && cell != null)) return;
       const reserva = _mapReservaDashboard(row, headerMap, tipo);
       if (!reserva) return;
-      if (!isAdmin && reserva.correo !== email) return;
+      const campaniaReserva = reserva.campania || reserva.sala || '';
+      if (!canAccessReserva(context, { campania: campaniaReserva, correo: reserva.correo })) return;
 
       reservasVisibles.push(reserva);
       if (reserva.tipo === 'Librar') {
@@ -1240,6 +1651,10 @@ function getInicioDashboardData() {
 
   return {
     role,
+    email,
+    campania: context.campania,
+    campanias: Array.isArray(context.campanias) ? context.campanias : (context.campania ? [context.campania] : []),
+    authorized: context.authorized,
     usuarioNombre: resultadoBase.usuarioNombre,
     lastUpdated: resultadoBase.lastUpdated,
     metrics: {

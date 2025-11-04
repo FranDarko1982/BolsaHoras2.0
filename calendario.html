@@ -197,7 +197,12 @@
               .puedeCobrarCampania(campania);
           });
           if (camps.length) {
-            sel.value = camps[0];
+            const desiredCampania = (typeof accessContext !== 'undefined' && accessContext && accessContext.campania)
+              ? accessContext.campania
+              : '';
+            const matchedCampania = camps.find(c => c.toLowerCase() === desiredCampania.toLowerCase());
+            const selectedValue = matchedCampania || camps[0];
+            sel.value = selectedValue;
             // Comprobar permiso de COBRAR para la campaña inicial
             google.script.run
               .withSuccessHandler(puedeCobrar => { window.puedeCobrar = puedeCobrar; })
@@ -376,9 +381,16 @@
           const sel=document.getElementById('campaniasLibrar');
           sel.innerHTML=camps.map(c=>`<option value="${c}">${c}</option>`).join('');
           // Restaurar última campaña de librar o usar la campaña de trabajar
-          const initialLib = selectedCampaniaLibrar || selectedCampania;
-          if (initialLib && camps.includes(initialLib)) {
-            sel.value = initialLib;
+          const desiredLib = selectedCampaniaLibrar || selectedCampania || (
+            typeof accessContext !== 'undefined' && accessContext && accessContext.campania
+              ? accessContext.campania
+              : ''
+          );
+          if (desiredLib) {
+            const matchedLib = camps.find(c => c.toLowerCase() === desiredLib.toLowerCase());
+            if (matchedLib) {
+              sel.value = matchedLib;
+            }
           }
           sel.onchange = function() {
             selectedCampaniaLibrar = sel.value;
@@ -386,6 +398,7 @@
           };
           if (camps.length) {
             sel.value = sel.value || camps[0];
+            selectedCampaniaLibrar = sel.value;
             buildCalendarLibrar();
           }
           // showLoader(false); // 

@@ -476,7 +476,9 @@
         const reportesNavButton = document.querySelector('.sidebar-item[data-target="reportes"]');
         const reportesSection = document.querySelector('.app-section[data-section="reportes"]');
         const fallbackDashboardData = {
-          role: 'user',
+          role: 'usuario',
+          campania: '',
+          campanias: [],
           usuarioNombre: 'Fran',
           lastUpdated: new Date().toLocaleDateString('es-ES'),
           metrics: {
@@ -628,8 +630,24 @@
 
         let dashboardLoaded = false;
         let solicitudesChartInstance = null;
-        let accessContext = { role: 'user', isAdmin: false, email: '' };
-        const DEFAULT_ACCESS_CONTEXT = { role: 'user', isAdmin: false, email: '' };
+        let accessContext = {
+          role: 'usuario',
+          isAdmin: false,
+          isGestor: false,
+          email: '',
+          campania: '',
+          campanias: [],
+          authorized: false
+        };
+        const DEFAULT_ACCESS_CONTEXT = {
+          role: 'usuario',
+          isAdmin: false,
+          isGestor: false,
+          email: '',
+          campania: '',
+          campanias: [],
+          authorized: false
+        };
 
         function setupHorasUpload(config) {
           if (!config || !config.button || !config.input || !config.serverFunction) {
@@ -784,14 +802,32 @@
         }
 
         function updateMetricHelpers(role) {
-          const isAdmin = role === 'admin';
-          const helperTexts = {
-            'total-solicitudes': isAdmin ? 'todas las solicitudes' : 'todas tus solicitudes',
-            proximas: isAdmin ? 'solicitudes futuras (todas)' : 'solicitudes futuras',
-            'horas-trabajar': isAdmin ? 'acumuladas (global)' : 'acumuladas',
-            'horas-librar': isAdmin ? 'acumuladas (global)' : 'acumuladas',
-            saldo: isAdmin ? 'librar – trabajar (global)' : 'librar – trabajar'
+          const normalizedRole = (typeof role === 'string' ? role : '').toLowerCase();
+          const helperTextsByRole = {
+            admin: {
+              'total-solicitudes': 'todas las solicitudes',
+              proximas: 'solicitudes futuras (todas)',
+              'horas-trabajar': 'acumuladas (global)',
+              'horas-librar': 'acumuladas (global)',
+              saldo: 'librar – trabajar (global)'
+            },
+            gestor: {
+              'total-solicitudes': 'solicitudes de tu campaña',
+              proximas: 'solicitudes futuras (campaña)',
+              'horas-trabajar': 'acumuladas (campaña)',
+              'horas-librar': 'acumuladas (campaña)',
+              saldo: 'librar – trabajar (campaña)'
+            },
+            usuario: {
+              'total-solicitudes': 'todas tus solicitudes',
+              proximas: 'solicitudes futuras',
+              'horas-trabajar': 'acumuladas',
+              'horas-librar': 'acumuladas',
+              saldo: 'librar – trabajar'
+            }
           };
+
+          const helperTexts = helperTextsByRole[normalizedRole] || helperTextsByRole.usuario;
 
           Object.entries(helperTexts).forEach(([metric, text]) => {
             const helper = document.querySelector(`[data-metric="${metric}"] .metric-helper`);
@@ -802,13 +838,84 @@
         }
 
         function applyAccessContext(context = DEFAULT_ACCESS_CONTEXT) {
-          const role = context && context.role === 'admin' ? 'admin' : 'user';
-          const email = context && context.email ? String(context.email).trim() : accessContext.email;
-          const isAdmin = role === 'admin';
-          const changed = role !== accessContext.role || email !== accessContext.email || isAdmin !== accessContext.isAdmin;
+          const rawRole = context && typeof context.role === 'string'
+            ? context.role.trim().toLowerCase()
+            : '';
+          const normalizedRole = rawRole === 'admin'
+            ? 'admin'
+            : rawRole === 'gestor'
+              ? 'gestor'
+              : 'usuario';
 
-          accessContext = { role, isAdmin, email };
-          updateMetricHelpers(role);
+          const isAdmin = normalizedRole === 'admin';
+          const isGestor = normalizedRole === 'gestor';
+
+          const email = context && typeof context.email === 'string'
+            ? context.email.trim().toLowerCase()
+            : accessContext.email;
+
+          let campanias = Array.isArray(context && context.campanias)
+            ? context.campanias
+                .map(item => (item == null ? '' : String(item).trim()))
+                .filter(Boolean)
+            : Array.isArray(accessContext.campanias)
+              ? accessContext.campanias.slice()
+              : [];
+
+          let campania = context && typeof context.campania === 'string'
+            ? context.campania.trim()
+            : '';
+
+          if (campania) {
+            if (!campanias.some(item => item.toLowerCase() === campania.toLowerCase())) {
+              campanias.unshift(campania);
+            }
+          } else if (campanias.length) {
+            campania = campanias[0];
+          } else if (accessContext.campania) {
+            campania = accessContext.campania;
+          }
+
+          const dedupedCampanias = [];
+          const seenCampanias = new Set();
+          campanias.forEach(item => {
+            const key = item.toLowerCase();
+            if (!seenCampanias.has(key)) {
+              seenCampanias.add(key);
+              dedupedCampanias.push(item);
+            }
+          });
+          if (campania && !dedupedCampanias.some(item => item.toLowerCase() === campania.toLowerCase())) {
+            dedupedCampanias.unshift(campania);
+          }
+
+          if (!campania && dedupedCampanias.length) {
+            campania = dedupedCampanias[0];
+          }
+
+          const authorized = context && typeof context.authorized === 'boolean'
+            ? context.authorized
+            : accessContext.authorized;
+
+          const changed =
+            normalizedRole !== accessContext.role ||
+            email !== accessContext.email ||
+            isAdmin !== accessContext.isAdmin ||
+            isGestor !== accessContext.isGestor ||
+            campania !== accessContext.campania ||
+            authorized !== accessContext.authorized;
+
+          accessContext = {
+            role: normalizedRole,
+            isAdmin,
+            isGestor,
+            email,
+            campania,
+            campanias: dedupedCampanias,
+            authorized
+          };
+
+          updateMetricHelpers(normalizedRole);
           enforceSectionVisibility();
 
           if (changed && !isAdmin) {
@@ -936,8 +1043,23 @@
 
         function renderInicioDashboard(data) {
           dashboardLoaded = true;
-          const normalizedRole = (data && data.role === 'admin') ? 'admin' : 'user';
-          applyAccessContext({ role: normalizedRole });
+          const normalizedRole = data && typeof data.role === 'string'
+            ? data.role
+            : accessContext.role;
+          const nextContext = { role: normalizedRole };
+          if (data && typeof data.email === 'string') {
+            nextContext.email = data.email;
+          }
+          if (data && typeof data.campania === 'string') {
+            nextContext.campania = data.campania;
+          }
+          if (data && Array.isArray(data.campanias)) {
+            nextContext.campanias = data.campanias;
+          }
+          if (data && typeof data.authorized === 'boolean') {
+            nextContext.authorized = data.authorized;
+          }
+          applyAccessContext(nextContext);
           const metrics = data.metrics || {};
           setMetricValue('metricTotalSolicitudes', metrics.totalSolicitudes);
           setMetricValue('metricProximasSolicitudes', metrics.proximasSolicitudes);
