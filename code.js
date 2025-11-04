@@ -361,11 +361,10 @@ function assertReservaAccess(context, campania, correo) {
 function getAccessContext() {
   const context = getUserContext();
   let sections = ['inicio', 'calendario', 'mis-reservas', 'ayuda'];
-
   if (context.isAdmin) {
     sections = ['inicio', 'calendario', 'mis-reservas', 'reportes', 'ayuda', 'panel-control'];
   } else if (context.isGestor) {
-    sections = ['inicio', 'calendario', 'mis-reservas', 'ayuda', 'panel-control'];
+    sections = ['inicio', 'calendario', 'mis-reservas', 'reportes', 'ayuda', 'panel-control']; // Añadido 'reportes'
   } else {
     sections = ['inicio', 'calendario', 'mis-reservas', 'ayuda'];
   }

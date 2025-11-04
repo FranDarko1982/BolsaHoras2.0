@@ -783,7 +783,7 @@
         }
 
         function canAccessSection(target) {
-          return target !== 'reportes' || accessContext.isAdmin;
+          return target !== 'reportes' || accessContext.isAdmin || accessContext.isGestor;
         }
 
         function enforceSectionVisibility(context) {
@@ -792,7 +792,7 @@
           const panelControlSection = document.querySelector('.app-section[data-section="panel-control"]');
 
           if (reportesNavButton && reportesSection) {
-            const canSeeReportes = isAdmin;
+            const canSeeReportes = isAdmin || isGestor;
             reportesNavButton.hidden = false;
             reportesNavButton.style.display = canSeeReportes ? '' : 'none';
             reportesSection.hidden = !canSeeReportes;
