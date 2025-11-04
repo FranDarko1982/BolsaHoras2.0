@@ -48,6 +48,12 @@ function getAppTimeZone() {
   return APP_TIMEZONE || Session.getScriptTimeZone();
 }
 
+// TZ-safe ISO (local) para no perder el día en el calendario
+const TZ = Session.getScriptTimeZone(); // debería ser "Europe/Madrid"
+function toLocalIso(dt) {
+  return Utilities.formatDate(new Date(dt), TZ, "yyyy-MM-dd'T'HH:mm:ss");
+}
+
 /************************************************************
  *  CONFIGURACIÓN: campañas que pueden COBRAR
  ************************************************************/
@@ -216,7 +222,6 @@ function getHorasDisponiblesLibrar(campania, startISO, endISO) {
 
 // FUNCIÓN AUXILIAR REUTILIZABLE
 function _getHorasDisponibles(sheetHorasObj, sheetResObj, campania, startISO, endISO) {
-  const tz    = getAppTimeZone();
   const start = new Date(startISO);
   const end   = new Date(endISO);
 
@@ -232,37 +237,32 @@ function _getHorasDisponibles(sheetHorasObj, sheetResObj, campania, startISO, en
     const disponible  = +r[COL.DISPON] || 0;
     if (!fechaStr || !franja || disponible <= 0) return;
 
-    // 1) Parsear fecha
-    let yyyy, mm, dd;
-    if (typeof fechaStr === 'string') {
-      [dd, mm, yyyy] = fechaStr.split('/').map(Number);
-    } else {
-      dd = fechaStr.getDate();
-      mm = fechaStr.getMonth() + 1;
-      yyyy = fechaStr.getFullYear();
-    }
+    // 1) Normalizar la fecha base
+    const baseDate = _parseToDate(fechaStr);
+    if (!baseDate) return;
 
     // 2) Hora de inicio
-    const [hIniStr] = franja.split('-');
-    const [h0, m0]   = hIniStr.split(':').map(Number);
+    const [hIniStr] = String(franja).split('-');
+    if (!hIniStr) return;
+    const [h0Raw, m0Raw] = hIniStr.split(':');
+    const h0 = Number(h0Raw);
+    const m0 = Number(m0Raw);
 
     // 3) Construir Date y descartar fuera de rango
-    const inicio = _createDateInTimezone(yyyy, mm - 1, dd, h0, m0, tz);
+    const inicio = new Date(baseDate);
+    inicio.setHours(
+      Number.isFinite(h0) ? h0 : 0,
+      Number.isFinite(m0) ? m0 : 0,
+      0,
+      0
+    );
     if (inicio < start || inicio >= end) return;
 
     const fin = new Date(inicio.getTime() + 3600000);
 
-    // 4) Pushear evento usando “disponible”
-    const offsetStart = Utilities.formatDate(inicio, tz, 'Z');
-    const offsetEnd   = Utilities.formatDate(fin,    tz, 'Z');
-    const startIsoLocal = Utilities.formatDate(inicio, tz, "yyyy-MM-dd'T'HH:mm:ss") +
-      (offsetStart.length === 5 ? offsetStart.slice(0, 3) + ':' + offsetStart.slice(3) : offsetStart);
-    const endIsoLocal = Utilities.formatDate(fin, tz, "yyyy-MM-dd'T'HH:mm:ss") +
-      (offsetEnd.length === 5 ? offsetEnd.slice(0, 3) + ':' + offsetEnd.slice(3) : offsetEnd);
-
     eventos.push({
-      start    : startIsoLocal,
-      end      : endIsoLocal,
+      start    : toLocalIso(inicio),
+      end      : toLocalIso(fin),
       title    : disponible + ' h',
       className: [
         sheetHorasObj === sheetHorasLibrar
@@ -337,30 +337,40 @@ function _normalizarFranja(franja) {
   return `${h1}:${min1}-${h2}:${min2}`;
 }
 
-function _createDateInTimezone(year, monthIndex, day, hour, minute, tz) {
-  const utcMillis = Date.UTC(year, monthIndex, day, hour, minute || 0, 0);
-  const offsetStr = Utilities.formatDate(new Date(utcMillis), tz, 'Z');
-  const sign = offsetStr.charAt(0) === '-' ? -1 : 1;
-  const hoursOffset = parseInt(offsetStr.slice(1, 3), 10) || 0;
-  const minutesOffset = parseInt(offsetStr.slice(3, 5), 10) || 0;
-  const totalOffsetMinutes = sign * (hoursOffset * 60 + minutesOffset);
-  return new Date(utcMillis - totalOffsetMinutes * 60000);
-}
-
-
-
 /************************************************************
  *  4) RESERVAR UNA O VARIAS HORAS (TRABAJAR)
  ************************************************************/
 function reservarVariasHoras(campania, startISO, horas) {
-  return _reservarVariasHoras('Trabajar', sheetResTrabajar, campania, startISO, horas);
+  let startDate;
+  if (typeof startISO === 'number') {
+    startDate = new Date(startISO);
+  } else if (typeof startISO === 'string') {
+    startDate = new Date(startISO);
+  } else {
+    throw new Error('Parámetro startISO inválido');
+  }
+  if (Number.isNaN(startDate.getTime())) {
+    throw new Error('Parámetro startISO inválido');
+  }
+  return _reservarVariasHoras('Trabajar', sheetResTrabajar, campania, startDate, horas);
 }
 
 /************************************************************
  *  4c) RESERVAR VARIAS HORAS (COBRAR)
  ************************************************************/
 function reservarVariasHorasCobrar(campania, startISO, horas) {
-  return _reservarVariasHoras('Cobrar', sheetResCobrar, campania, startISO, horas);
+  let startDate;
+  if (typeof startISO === 'number') {
+    startDate = new Date(startISO);
+  } else if (typeof startISO === 'string') {
+    startDate = new Date(startISO);
+  } else {
+    throw new Error('Parámetro startISO inválido');
+  }
+  if (Number.isNaN(startDate.getTime())) {
+    throw new Error('Parámetro startISO inválido');
+  }
+  return _reservarVariasHoras('Cobrar', sheetResCobrar, campania, startDate, horas);
 }
 
 /************************************************************
@@ -370,7 +380,18 @@ function reservarHoraLibrar(campania, startISO) {
   return _reservarHora('Librar', sheetResLibrar, campania, startISO);
 }
 function reservarVariasHorasLibrar(campania, startISO, horas) {
-  return _reservarVariasHoras('Librar', sheetResLibrar, campania, startISO, horas);
+  let startDate;
+  if (typeof startISO === 'number') {
+    startDate = new Date(startISO);
+  } else if (typeof startISO === 'string') {
+    startDate = new Date(startISO);
+  } else {
+    throw new Error('Parámetro startISO inválido');
+  }
+  if (Number.isNaN(startDate.getTime())) {
+    throw new Error('Parámetro startISO inválido');
+  }
+  return _reservarVariasHoras('Librar', sheetResLibrar, campania, startDate, horas);
 }
 
 // FUNCIÓN AUXILIAR RESERVA 1
@@ -428,9 +449,12 @@ function _reservarHora(tipo, sheetResObj, campania, startISO) {
 /************************************************************
  *  4b) RESERVAR VARIAS HORAS (LIBRAR/TRABAJAR/COBRAR)
  ************************************************************/
-function _reservarVariasHoras(tipo, sheetResObj, campania, startISO, horas) {
+function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas) {
   const tz    = getAppTimeZone();
-  const ini   = new Date(startISO);
+  const ini   = new Date(startDate);
+  if (Number.isNaN(ini.getTime())) {
+    throw new Error('Fecha de inicio inválida');
+  }
   const email = Session.getActiveUser().getEmail() || '';
   const sh    = sheetResObj;
   ensureReservaIdColumn(sh);
@@ -444,7 +468,7 @@ function _reservarVariasHoras(tipo, sheetResObj, campania, startISO, horas) {
     throw new Error(`La campaña "${campania}" no tiene habilitada la opción de COBRAR horas.`);
   }
 
-  if (!comprobarDisponibilidadContinua(sheetHorasObj, campania, startISO, horas)) {
+  if (!comprobarDisponibilidadContinua(sheetHorasObj, campania, ini, horas)) {
     throw new Error(
       "¡Ay miarma! El tramo que has elegido no está completamente disponible, hay horas intermedias pilladas. " +
       "Prueba con otro horario o menos horas seguidas. No te me vengas arriba solicitando de gratis, ¿eh?"
@@ -956,40 +980,66 @@ function getSolicitudesAcumuladas() {
     .map(({ _timestamp, ...rest }) => rest);
 }
 
-function _getMisReservasDeHoja(sh, email, tipoPeticion) {
-  if (!sh) return [];
-  const datos     = sh.getDataRange().getValues();
-  const headerMap = datos[0].reduce((m, h, i) => (m[String(h).trim()] = i, m), {});
-  const {
-    Campaña: C_CAM,
-    Fecha: C_FEC,
-    HORAS: C_HOR,
-    FRANJA: C_FRA,
-    Correo: C_COR,
-    key: C_KEY,
-    ["Tipo petición"]: C_TIP,
-    ["Tipo"]: C_TIP2,
-    ["Estado solicitud"]: C_EST
-  } = headerMap;
+/**
+ * Obtiene todas las reservas del usuario autenticado desde una hoja determinada.
+ * Corrige desfases de fecha normalizando a medianoche local (Europe/Madrid).
+ *
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} hoja
+ * @param {string} tipoReserva - 'Trabajar', 'Librar' o 'Cobrar'
+ * @return {Array<Object>}
+ */
+function _getMisReservasDeHoja(hoja, tipoReserva) {
+  if (!hoja) return [];
 
-  const COL_TIPO = (C_TIP >= 0 ? C_TIP : C_TIP2);
+  const tz = getAppTimeZone();
+  const data = hoja.getDataRange().getValues();
+  if (data.length < 2) return [];
 
-  return datos.slice(1)
-    .filter(r => String(r[C_COR] || '').trim().toLowerCase() === email)
-    .map(r => ({
-      campania       : r[C_CAM],
-      fecha          : (r[C_FEC] instanceof Date)
-                        ? Utilities.formatDate(r[C_FEC], getAppTimeZone(), 'dd/MM/yyyy')
-                        : String(r[C_FEC] || ''),
-      horas          : r[C_HOR],
-      franja         : r[C_FRA],
-      estado         : (C_EST >= 0 ? r[C_EST] : r[headerMap["Validación"]] || ''),
-      key            : String(r[C_KEY] || ''),
-      tipo           : String(r[COL_TIPO] || tipoPeticion),
-      estadoSolicitud: C_EST >= 0 ? String(r[C_EST] || '') : ''
-    }));
+  const headers = data[0];
+  const C_CAMP = headers.indexOf('Campaña');
+  const C_FEC = headers.indexOf('Fecha');
+  const C_HORAS = headers.indexOf('HORAS');
+  const C_FRANJA = headers.indexOf('FRANJA');
+  const C_CORREO = headers.indexOf('Correo');
+  const C_TIPO = headers.indexOf('Tipo');
+  const C_VALID = headers.indexOf('Validación');
+  const C_CLAVE = headers.indexOf('Clave');
+  const C_ESTADO = headers.indexOf('Estado solic');
+  const C_EMPLEADO = headers.indexOf('NºEmpleado');
+  const C_IDRES = headers.indexOf('ID reserva');
+
+  const userEmail = _obtenerCorreoUsuario();
+  const reservas = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const r = data[i];
+    const correo = (r[C_CORREO] || '').toString().trim();
+
+    if (!correo || correo.toLowerCase() !== userEmail.toLowerCase()) continue;
+
+    const fechaRaw = r[C_FEC];
+    const fechaFormateada =
+      fechaRaw instanceof Date
+        ? Utilities.formatDate(_normalizeDate(fechaRaw), tz, 'dd/MM/yyyy')
+        : String(fechaRaw || '');
+
+    reservas.push({
+      id: r[C_IDRES] || '',
+      campania: r[C_CAMP] || '',
+      correo,
+      empleado: r[C_EMPLEADO] || '',
+      fecha: fechaFormateada,
+      franja: r[C_FRANJA] || '',
+      horas: r[C_HORAS] || 0,
+      tipo: tipoReserva || r[C_TIPO] || '',
+      estado: r[C_ESTADO] || '',
+      validacion: r[C_VALID] || '',
+      clave: r[C_CLAVE] || '',
+    });
+  }
+
+  return reservas;
 }
-
 function _getSolicitudesDeHoja(sheet, defaultTipo, tz) {
   if (!sheet) return [];
   const values = sheet.getDataRange().getValues();
@@ -1298,9 +1348,11 @@ function _parseToDate(value) {
 }
 
 function _normalizeDate(date) {
-  const normalized = new Date(date);
-  normalized.setHours(0, 0, 0, 0);
-  return normalized;
+  const tz = getAppTimeZone(); // debería ser Europe/Madrid (lo lee de la hoja)
+  const y  = Number(Utilities.formatDate(date, tz, 'yyyy'));
+  const m  = Number(Utilities.formatDate(date, tz, 'MM'));
+  const d  = Number(Utilities.formatDate(date, tz, 'dd'));
+  return new Date(y, m - 1, d, 0, 0, 0, 0); // medianoche local
 }
 
 function _formatMonthLabel(date) {

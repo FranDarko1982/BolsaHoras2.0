@@ -313,9 +313,9 @@
               });
 
               if (tipo === 'Cobrar') {
-                handler.reservarVariasHorasCobrar(campSel, s.toISOString(), horas);
+                handler.reservarVariasHorasCobrar(campSel, s.getTime(), horas);
               } else {
-                handler.reservarVariasHoras(campSel, s.toISOString(), horas);
+                handler.reservarVariasHoras(campSel, s.getTime(), horas);
               }
 
             }).getHorasDisponibles(campSel, startDay.toISOString(), endDay.toISOString());
@@ -512,7 +512,7 @@
                 showLoader(false);
                 alert(err.message);
               })
-              .reservarVariasHorasLibrar(campSel, s.toISOString(), horas);
+              .reservarVariasHorasLibrar(campSel, s.getTime(), horas);
           })
           .getHorasDisponiblesLibrar(campSel, startDay.toISOString(), endDay.toISOString());
         }
