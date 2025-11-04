@@ -216,6 +216,7 @@ function getHorasDisponiblesLibrar(campania, startISO, endISO) {
 
 // FUNCIÓN AUXILIAR REUTILIZABLE
 function _getHorasDisponibles(sheetHorasObj, sheetResObj, campania, startISO, endISO) {
+  const tz    = getAppTimeZone();
   const start = new Date(startISO);
   const end   = new Date(endISO);
 
@@ -246,13 +247,22 @@ function _getHorasDisponibles(sheetHorasObj, sheetResObj, campania, startISO, en
     const [h0, m0]   = hIniStr.split(':').map(Number);
 
     // 3) Construir Date y descartar fuera de rango
-    const inicio = new Date(yyyy, mm - 1, dd, h0, m0, 0, 0);
+    const inicio = _createDateInTimezone(yyyy, mm - 1, dd, h0, m0, tz);
     if (inicio < start || inicio >= end) return;
 
+    const fin = new Date(inicio.getTime() + 3600000);
+
     // 4) Pushear evento usando “disponible”
+    const offsetStart = Utilities.formatDate(inicio, tz, 'Z');
+    const offsetEnd   = Utilities.formatDate(fin,    tz, 'Z');
+    const startIsoLocal = Utilities.formatDate(inicio, tz, "yyyy-MM-dd'T'HH:mm:ss") +
+      (offsetStart.length === 5 ? offsetStart.slice(0, 3) + ':' + offsetStart.slice(3) : offsetStart);
+    const endIsoLocal = Utilities.formatDate(fin, tz, "yyyy-MM-dd'T'HH:mm:ss") +
+      (offsetEnd.length === 5 ? offsetEnd.slice(0, 3) + ':' + offsetEnd.slice(3) : offsetEnd);
+
     eventos.push({
-      start    : inicio.toISOString(),
-      end      : new Date(inicio.getTime() + 3600000).toISOString(),
+      start    : startIsoLocal,
+      end      : endIsoLocal,
       title    : disponible + ' h',
       className: [
         sheetHorasObj === sheetHorasLibrar
@@ -327,6 +337,16 @@ function _normalizarFranja(franja) {
   return `${h1}:${min1}-${h2}:${min2}`;
 }
 
+function _createDateInTimezone(year, monthIndex, day, hour, minute, tz) {
+  const utcMillis = Date.UTC(year, monthIndex, day, hour, minute || 0, 0);
+  const offsetStr = Utilities.formatDate(new Date(utcMillis), tz, 'Z');
+  const sign = offsetStr.charAt(0) === '-' ? -1 : 1;
+  const hoursOffset = parseInt(offsetStr.slice(1, 3), 10) || 0;
+  const minutesOffset = parseInt(offsetStr.slice(3, 5), 10) || 0;
+  const totalOffsetMinutes = sign * (hoursOffset * 60 + minutesOffset);
+  return new Date(utcMillis - totalOffsetMinutes * 60000);
+}
+
 
 
 /************************************************************
@@ -366,7 +386,8 @@ function _reservarHora(tipo, sheetResObj, campania, startISO) {
   );
   const email = Session.getActiveUser().getEmail() || '';
   const fechaSoloTexto = Utilities.formatDate(ini, tz, 'dd/MM/yyyy');
-  const keyReserva = campania + fechaSerial + franja + email + tipo;
+  const tipoKey = (tipo === 'Cobrar') ? 'Trabajar' : tipo;
+  const keyReserva = campania + fechaSerial + franja + email + tipoKey;
   const reservaId = generateReservaId();
 
   // Hoja de reservas (usamos la hoja cacheada)
@@ -439,7 +460,8 @@ function _reservarVariasHoras(tipo, sheetResObj, campania, startISO, horas) {
     const strFranja   = formatFranja(inicio, tz);
     const fechaSolo   = Utilities.formatDate(inicio, tz, 'dd/MM/yyyy');
     const fechaSerial = toSerialDate(inicio);
-    const keyReserva  = `${campania}${fechaSerial}${strFranja}${email}${tipo}`;
+    const tipoKey     = (tipo === 'Cobrar') ? 'Trabajar' : tipo;
+    const keyReserva  = `${campania}${fechaSerial}${strFranja}${email}${tipoKey}`;
 
     rows.push([
       campania,
