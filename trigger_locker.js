@@ -29,7 +29,18 @@ function verificarCambiosYUnificar() {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     if (!ss) throw new Error(`No se pudo abrir la hoja de cálculo con ID: ${SPREADSHEET_ID}`);
 
-    const TARGET_SHEETS = ["bbdd reservas horas trabajar", "bbdd reservas horas librar"];
+    const cobrarCandidates = Array.from(new Set([
+      'bbdd reservas horas complementarias',
+      (typeof SHEET_RES_COBRAR_NAME === 'string' && SHEET_RES_COBRAR_NAME) ? SHEET_RES_COBRAR_NAME : '',
+      SHEET_RES_COBRAR,
+      typeof SHEET_RES_COBRAR_ALT === 'undefined' ? '' : SHEET_RES_COBRAR_ALT
+    ].filter(Boolean)));
+
+    const TARGET_SHEETS = [
+      "bbdd reservas horas trabajar",
+      ...cobrarCandidates,
+      "bbdd reservas horas librar"
+    ];
 
     // 1. Obtener el estado guardado (conteo de filas anterior)
     const scriptProperties = PropertiesService.getScriptProperties();

@@ -1,6 +1,16 @@
 function unificarDatosLocker() {
   // === Config ===
-  const SOURCE_SHEETS = ["bbdd reservas horas trabajar", "bbdd reservas horas librar"];
+  const cobrarCandidates = Array.from(new Set([
+    'bbdd reservas horas complementarias',
+    (typeof SHEET_RES_COBRAR_NAME === 'string' && SHEET_RES_COBRAR_NAME) ? SHEET_RES_COBRAR_NAME : '',
+    SHEET_RES_COBRAR,
+    typeof SHEET_RES_COBRAR_ALT === 'undefined' ? '' : SHEET_RES_COBRAR_ALT
+  ].filter(Boolean)));
+  const SOURCE_SHEETS = [
+    "bbdd reservas horas trabajar",
+    ...cobrarCandidates,
+    "bbdd reservas horas librar"
+  ];
   const DEST_SHEET = "Datos Locker";
   const EXTERNAL_ID = "1zn02OCArJNv7zCpTSER4MJzu6Rzt_VgyJLqV63Pw7Ko"; // A:B => NºEmpleado | email
   const EMAIL_COL_INDEX = 5;    // Columna F (0-based)

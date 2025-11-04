@@ -1,13 +1,15 @@
 /************************************************************
  *  CONFIGURACIÓNAKA
  ************************************************************/
-const SPREADSHEET_ID    = '1g3K7lGBzD-KfAg8xpyW0RtbkfSYd-sAwcGo-zXSIDC0';
-const SHEET_HORAS        = 'Horas trabajar';
-const SHEET_RES          = 'bbdd reservas horas trabajar';
-const SHEET_HORAS_LIBRAR = 'Horas librar';
-const SHEET_RES_LIBRAR   = 'bbdd reservas horas librar';
-const SHEET_DATOS_LOCKER = 'Datos Locker';
-const SHEET_ADMIN        = 'admin';
+const SPREADSHEET_ID      = '1g3K7lGBzD-KfAg8xpyW0RtbkfSYd-sAwcGo-zXSIDC0';
+const SHEET_HORAS          = 'Horas trabajar';
+const SHEET_RES            = 'bbdd reservas horas trabajar';
+const SHEET_RES_COBRAR     = 'bbdd reservas horas complementarias';
+const SHEET_RES_COBRAR_ALT = 'bbdd reserva horas complementarias';
+const SHEET_HORAS_LIBRAR   = 'Horas librar';
+const SHEET_RES_LIBRAR     = 'bbdd reservas horas librar';
+const SHEET_DATOS_LOCKER   = 'Datos Locker';
+const SHEET_ADMIN          = 'admin';
 
 const RESERVA_ID_PROP_KEY = 'RESERVA_ID_COUNTER';
 
@@ -29,11 +31,16 @@ const URL_APP           = "https://script.google.com/a/macros/intelcia.com/s/AKf
 const ss               = SpreadsheetApp.openById(SPREADSHEET_ID);
 const sheetHoras       = ss.getSheetByName(SHEET_HORAS);
 const sheetHorasLibrar = ss.getSheetByName(SHEET_HORAS_LIBRAR);
-const sheetResTrabajar = ss.getSheetByName(SHEET_RES)        || createReservaSheet(ss, SHEET_RES);
-const sheetResLibrar   = ss.getSheetByName(SHEET_RES_LIBRAR) || createReservaSheet(ss, SHEET_RES_LIBRAR);
+const sheetResTrabajar = ss.getSheetByName(SHEET_RES)                        || createReservaSheet(ss, SHEET_RES);
+const sheetResCobrar   = getSheetByPossibleNames(
+  [SHEET_RES_COBRAR, SHEET_RES_COBRAR_ALT],
+  () => createReservaSheet(ss, SHEET_RES_COBRAR)
+);
+const sheetResLibrar   = ss.getSheetByName(SHEET_RES_LIBRAR)                 || createReservaSheet(ss, SHEET_RES_LIBRAR);
 const sheetDatosLocker = ss.getSheetByName(SHEET_DATOS_LOCKER);
 
 const sheetAdmin       = ss.getSheetByName(SHEET_ADMIN);
+const SHEET_RES_COBRAR_NAME = sheetResCobrar ? sheetResCobrar.getName() : SHEET_RES_COBRAR;
 
 /************************************************************
  *  CONFIGURACIÓN: campañas que pueden COBRAR
@@ -107,6 +114,34 @@ function getAccessContext() {
     email,
     sections
   };
+}
+
+function getSheetByPossibleNames(names, fallbackFactory) {
+  const list = Array.isArray(names) ? names : [names];
+
+  for (let i = 0; i < list.length; i++) {
+    const name = list[i];
+    if (!name) continue;
+    const sheet = ss.getSheetByName(name);
+    if (sheet) return sheet;
+  }
+
+  const lowerTargets = list
+    .map(name => (name == null ? '' : String(name).toLowerCase()))
+    .filter(Boolean);
+
+  if (lowerTargets.length) {
+    const sheets = ss.getSheets();
+    for (let i = 0; i < sheets.length; i++) {
+      const sheet = sheets[i];
+      const sheetName = sheet.getName();
+      if (lowerTargets.includes(sheetName.toLowerCase())) {
+        return sheet;
+      }
+    }
+  }
+
+  return typeof fallbackFactory === 'function' ? fallbackFactory() : null;
 }
 
 
@@ -300,7 +335,7 @@ function reservarVariasHoras(campania, startISO, horas) {
  *  4c) RESERVAR VARIAS HORAS (COBRAR)
  ************************************************************/
 function reservarVariasHorasCobrar(campania, startISO, horas) {
-  return _reservarVariasHoras('Cobrar', sheetResTrabajar, campania, startISO, horas);
+  return _reservarVariasHoras('Cobrar', sheetResCobrar, campania, startISO, horas);
 }
 
 /************************************************************
@@ -457,6 +492,7 @@ function generateReservaId() {
 function computeHighestReservaId() {
   const highest = Math.max(
     getHighestReservaIdFromSheet(sheetResTrabajar),
+    getHighestReservaIdFromSheet(sheetResCobrar),
     getHighestReservaIdFromSheet(sheetResLibrar)
   );
   const props = PropertiesService.getScriptProperties();
@@ -542,10 +578,11 @@ function sendConfirmationEmail(tipo, campania, ini, primer, ultima, horas, email
 
 
 /************************************************************
- *  5) CANCELAR RESERVA (TRABAJAR o LIBRAR)
+ *  5) CANCELAR RESERVA (TRABAJAR, COBRAR o LIBRAR)
  ************************************************************/
 function cancelarReserva(key) {
   let ok = _cancelarReservaEnHoja(sheetResTrabajar, key);
+  if (!ok) ok = _cancelarReservaEnHoja(sheetResCobrar, key);
   if (!ok) ok = _cancelarReservaEnHoja(sheetResLibrar, key);
   return ok;
 }
@@ -596,7 +633,7 @@ function _cancelarReservaEnHoja(sheetResObj, key) {
 }
 
 /************************************************************
- *  5c) CANCELAR MÚLTIPLES RESERVAS (TRABAJAR o LIBRAR)
+ *  5c) CANCELAR MÚLTIPLES RESERVAS (TRABAJAR, COBRAR o LIBRAR)
  ************************************************************/
 function cancelarMultiplesReservas(keys) {
   if (!Array.isArray(keys) || keys.length === 0) {
@@ -604,8 +641,9 @@ function cancelarMultiplesReservas(keys) {
   }
 
   keys.forEach(key => {
-    // Intenta cancelar en ambas hojas, no importa si falla en una.
+    // Intenta cancelar en las hojas conocidas, no importa si falla en alguna.
     _cancelarReservaEnHoja(sheetResTrabajar, key);
+    _cancelarReservaEnHoja(sheetResCobrar, key);
     _cancelarReservaEnHoja(sheetResLibrar, key);
   });
 
@@ -629,6 +667,15 @@ function actualizarSolicitud(payload) {
       message: 'Solicitud actualizada correctamente.',
       key: updatedTrabajar.key,
       sheet: updatedTrabajar.sheet
+    };
+  }
+
+  const updatedCobrar = _actualizarSolicitudEnHoja(sheetResCobrar, data);
+  if (updatedCobrar) {
+    return {
+      message: 'Solicitud actualizada correctamente.',
+      key: updatedCobrar.key,
+      sheet: updatedCobrar.sheet
     };
   }
 
@@ -793,8 +840,9 @@ function getMisReservas() {
   const { email } = getUserContext();
   if (!email) return [];
   const reservasTrabajar = _getMisReservasDeHoja(sheetResTrabajar, email, 'Trabajar');
+  const reservasCobrar   = _getMisReservasDeHoja(sheetResCobrar,   email, 'Cobrar');
   const reservasLibrar   = _getMisReservasDeHoja(sheetResLibrar,   email, 'Librar');
-  return [...reservasTrabajar, ...reservasLibrar].sort((a, b) => {
+  return [...reservasTrabajar, ...reservasCobrar, ...reservasLibrar].sort((a, b) => {
     const fA = parseDateDDMMYYYY(a.fecha);
     const fB = parseDateDDMMYYYY(b.fecha);
     if (fA < fB) return -1;
@@ -822,8 +870,9 @@ function getSolicitudesAcumuladas() {
       }
     }
     const solicitudesTrabajar = _getSolicitudesDeHoja(sheetResTrabajar, 'Trabajar', tz);
+    const solicitudesCobrar = _getSolicitudesDeHoja(sheetResCobrar, 'Cobrar', tz);
     const solicitudesLibrar = _getSolicitudesDeHoja(sheetResLibrar, 'Librar', tz);
-    return [...solicitudesTrabajar, ...solicitudesLibrar];
+    return [...solicitudesTrabajar, ...solicitudesCobrar, ...solicitudesLibrar];
   })();
 
   const visibles = isAdmin
@@ -1007,6 +1056,7 @@ function getInicioDashboardData() {
 
   [
     { sheet: sheetResTrabajar, tipo: 'Trabajar' },
+    { sheet: sheetResCobrar, tipo: 'Cobrar' },
     { sheet: sheetResLibrar, tipo: 'Librar' }
   ].forEach(({ sheet, tipo }) => {
     if (!sheet) return;

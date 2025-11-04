@@ -7,7 +7,17 @@ function onEdit(e) {
     const col     = e.range.getColumn();
     const valor   = String(e.value || '').trim().toUpperCase();
 
-    if (name !== 'bbdd reservas horas trabajar' && name !== 'bbdd reservas horas librar') {
+    const SHEET_TRABAJAR = (typeof SHEET_RES === 'string' && SHEET_RES) ? SHEET_RES : 'bbdd reservas horas trabajar';
+    const SHEET_LIBRAR   = (typeof SHEET_RES_LIBRAR === 'string' && SHEET_RES_LIBRAR) ? SHEET_RES_LIBRAR : 'bbdd reservas horas librar';
+    const SHEET_COBRAR_NAMES = Array.from(new Set([
+      'bbdd reservas horas complementarias',
+      (typeof SHEET_RES_COBRAR_NAME === 'string' && SHEET_RES_COBRAR_NAME) ? SHEET_RES_COBRAR_NAME : '',
+      (typeof SHEET_RES_COBRAR === 'string' && SHEET_RES_COBRAR) ? SHEET_RES_COBRAR : '',
+      (typeof SHEET_RES_COBRAR_ALT === 'string' && SHEET_RES_COBRAR_ALT) ? SHEET_RES_COBRAR_ALT : ''
+    ].filter(Boolean)));
+    const isCobrarSheet = SHEET_COBRAR_NAMES.includes(name);
+
+    if (![SHEET_TRABAJAR, SHEET_LIBRAR].includes(name) && !isCobrarSheet) {
       Logger.log('Hoja distinta, no intervengo: ' + name);
       return;
     }
@@ -28,7 +38,12 @@ function onEdit(e) {
     const idxFecha  = headers.indexOf('Fecha') + 1;
     const idxHoras  = headers.indexOf('HORAS') + 1;
     const idxFran   = headers.indexOf('FRANJA') + 1;
-    const idxTipo   = headers.indexOf('Tipo') + 1;
+    const idxTipo = (() => {
+      const idx = headers.indexOf('Tipo');
+      if (idx >= 0) return idx + 1;
+      const idxAlt = headers.indexOf('Tipo petición');
+      return idxAlt >= 0 ? idxAlt + 1 : 0;
+    })();
 
     // Leer datos de la fila editada
     const datos = sh.getRange(fila, 1, 1, sh.getLastColumn()).getValues()[0];
@@ -41,9 +56,19 @@ function onEdit(e) {
     let tipoReserva = '';
 
     // Tipo según columna "Tipo"
-    if (name === 'bbdd reservas horas trabajar') {
-      tipoReserva = (datos[idxTipo-1] || 'TRABAJAR').toString().toUpperCase();
-    } else if (name === 'bbdd reservas horas librar') {
+    if (name === SHEET_TRABAJAR) {
+      if (idxTipo > 0) {
+        tipoReserva = (datos[idxTipo - 1] || 'TRABAJAR').toString().toUpperCase();
+      } else {
+        tipoReserva = 'TRABAJAR';
+      }
+    } else if (isCobrarSheet) {
+      if (idxTipo > 0) {
+        tipoReserva = (datos[idxTipo - 1] || 'COBRAR').toString().toUpperCase();
+      } else {
+        tipoReserva = 'COBRAR';
+      }
+    } else if (name === SHEET_LIBRAR) {
       tipoReserva = 'LIBRAR';
     }
 
