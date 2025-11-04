@@ -786,18 +786,23 @@
           return target !== 'reportes' || accessContext.isAdmin;
         }
 
-        function enforceSectionVisibility() {
-          if (!reportesNavButton || !reportesSection) return;
-          if (accessContext.isAdmin) {
+        function enforceSectionVisibility(context) {
+          const { isAdmin, isGestor } = context || accessContext;
+          const panelControlNav = document.querySelector('.sidebar-item[data-target="panel-control"]');
+          const panelControlSection = document.querySelector('.app-section[data-section="panel-control"]');
+
+          if (reportesNavButton && reportesSection) {
+            const canSeeReportes = isAdmin;
             reportesNavButton.hidden = false;
-            reportesNavButton.style.display = '';
-            reportesSection.hidden = false;
-          } else {
-            reportesNavButton.hidden = true;
-            reportesNavButton.style.display = 'none';
-            reportesNavButton.classList.remove('active');
-            reportesSection.hidden = true;
-            reportesSection.classList.remove('is-active');
+            reportesNavButton.style.display = canSeeReportes ? '' : 'none';
+            reportesSection.hidden = !canSeeReportes;
+          }
+
+          if (panelControlNav && panelControlSection) {
+            const canSeePanel = isAdmin || isGestor;
+            panelControlNav.hidden = false;
+            panelControlNav.style.display = canSeePanel ? '' : 'none';
+            panelControlSection.hidden = !canSeePanel;
           }
         }
 
@@ -916,7 +921,7 @@
           };
 
           updateMetricHelpers(normalizedRole);
-          enforceSectionVisibility();
+          enforceSectionVisibility(accessContext);
 
           if (changed && !isAdmin) {
             const activeSection = sections.find(section => section.classList.contains('is-active'));
@@ -941,7 +946,7 @@
         }
 
         updateMetricHelpers(accessContext.role);
-        enforceSectionVisibility();
+        enforceSectionVisibility(accessContext);
         loadAccessContext();
         setupEditSolicitudModal();
 
