@@ -543,6 +543,9 @@ function _getMisReservasDeHoja(hoja, context, tipoReserva) {
         ? Utilities.formatDate(_normalizeDate(fechaRaw), tz, 'dd/MM/yyyy')
         : String(fechaRaw || '');
 
+    const tipoSheet = C_TIPO >= 0 ? String(r[C_TIPO] || '').trim() : '';
+    const tipoFinal = tipoSheet || tipoReserva || '';
+
     reservas.push({
       id: r[C_IDRES] || '',
       campania,
@@ -551,7 +554,7 @@ function _getMisReservasDeHoja(hoja, context, tipoReserva) {
       fecha: fechaFormateada,
       franja: r[C_FRANJA] || '',
       horas: r[C_HORAS] || 0,
-      tipo: tipoReserva || r[C_TIPO] || '',
+      tipo: tipoFinal,
       estado: r[C_ESTADO] || '',
       validacion: r[C_VALID] || '',
       clave: r[C_CLAVE] || '',
