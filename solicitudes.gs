@@ -335,6 +335,12 @@ function tramitarSolicitudCobrar(options) {
     'Tipo Peticion',
     'Tipo solicitud'
   ]);
+  const colValidacion = _findFirstIndex(headerMap, [
+    'Validación',
+    'Validacion',
+    'Validación solicitud',
+    'Validacion solicitud'
+  ]);
 
   const bodyRange = sheetResCobrar.getRange(2, 1, sheetResCobrar.getLastRow() - 1, sheetResCobrar.getLastColumn());
   const bodyValues = bodyRange.getValues();
@@ -359,9 +365,28 @@ function tramitarSolicitudCobrar(options) {
     throw new Error('No se encontró la solicitud indicada.');
   }
 
+  const rowValues = bodyValues[targetRowIndex];
   const estadoFinal = accionRaw === 'aceptar' ? 'ACEPTADA' : 'DENEGADA';
-  if (estadosRange) {
+  const esAceptacion = accionRaw === 'aceptar';
+
+  if (esAceptacion) {
+    if (colValidacion >= 0) {
+      sheetResCobrar
+        .getRange(targetRowIndex + 2, colValidacion + 1)
+        .setValue('OK');
+      rowValues[colValidacion] = 'OK';
+    }
+    if (colTipo >= 0) {
+      sheetResCobrar
+        .getRange(targetRowIndex + 2, colTipo + 1)
+        .setValue('Complementaria aceptada');
+      rowValues[colTipo] = 'Complementaria aceptada';
+    }
+  } else if (estadosRange) {
     estadosRange.getCell(targetRowIndex + 1, 1).setValue(estadoFinal);
+    if (colEstado >= 0) {
+      rowValues[colEstado] = estadoFinal;
+    }
   }
 
   const correoIndex = _findFirstIndex(headerMap, ['Correo', 'Email', 'Mail']);
@@ -371,7 +396,6 @@ function tramitarSolicitudCobrar(options) {
   const horasIndex = _findFirstIndex(headerMap, ['HORAS', 'Horas', 'Horas solicitadas', 'Horas reservadas']);
   const tipoIndex = _findFirstIndex(headerMap, ['Tipo', 'Tipo petición', 'Tipo Peticion', 'Tipo solicitud']);
 
-  const rowValues = bodyValues[targetRowIndex];
   const correoDestino = correoIndex >= 0 ? String(rowValues[correoIndex] || '').trim() : '';
   if (correoDestino && correoDestino.indexOf('@') > -1) {
     const tz = getAppTimeZone();
