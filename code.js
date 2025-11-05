@@ -1335,6 +1335,147 @@ function _actualizarSolicitudEnHoja(sheet, data) {
 }
 
 /************************************************************
+ *  5d) TRAMITAR SOLICITUD DE COBRO (GESTOR / ADMIN)
+ ************************************************************/
+function tramitarSolicitudCobrar(options) {
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
+
+  if (!context.isAdmin && !context.isGestor) {
+    throw new Error('No tienes permisos para tramitar solicitudes.');
+  }
+
+  if (!sheetResCobrar) {
+    throw new Error('No se encontró la hoja de reservas de horas complementarias.');
+  }
+
+  const accionRaw = options && typeof options.accion === 'string'
+    ? options.accion.trim().toLowerCase()
+    : '';
+  if (accionRaw !== 'aceptar' && accionRaw !== 'denegar') {
+    throw new Error('Acción de tramitación no válida.');
+  }
+
+  const key = options && typeof options.key === 'string'
+    ? options.key.trim()
+    : '';
+  const reservaId = options && typeof options.reservaId === 'string'
+    ? options.reservaId.trim()
+    : '';
+
+  if (!key && !reservaId) {
+    throw new Error('Falta el identificador de la solicitud.');
+  }
+
+  const dataRange = sheetResCobrar.getDataRange();
+  const values = dataRange.getValues();
+  if (!values.length) {
+    throw new Error('No hay datos disponibles en la hoja de reservas complementarias.');
+  }
+
+  const headerRow = values[0];
+  const headerMap = headerRow.reduce((map, header, index) => {
+    const name = String(header || '').trim();
+    if (name) map[name] = index;
+    return map;
+  }, {});
+
+  const colKey = _findFirstIndex(headerMap, ['key', 'Key', 'KEY']);
+  const colReservaId = _findFirstIndex(headerMap, [
+    'ID reserva',
+    'ID Reserva',
+    'Id reserva',
+    'Reserva ID',
+    'ID'
+  ]);
+  const colEstado = _findFirstIndex(headerMap, [
+    'Estado solic',
+    'Estado solicitud',
+    'Estado Solicitud',
+    'Estado'
+  ]);
+  const colValidacion = _findFirstIndex(headerMap, [
+    'Validación',
+    'Validacion',
+    'Validación solicitud',
+    'Validacion solicitud',
+    'Validación solic',
+    'Validacion solic'
+  ]);
+  const colCampania = _findFirstIndex(headerMap, ['Campaña', 'Campana']);
+  const colCorreo = _findFirstIndex(headerMap, ['Correo', 'Email', 'Mail']);
+
+  if (colEstado < 0) {
+    throw new Error('No se encontró la columna de estado en la hoja de reservas complementarias.');
+  }
+  if (colValidacion < 0) {
+    throw new Error('No se encontró la columna de validación en la hoja de reservas complementarias.');
+  }
+  if (colKey < 0 && colReservaId < 0) {
+    throw new Error('No se encontraron columnas de identificador en la hoja de reservas complementarias.');
+  }
+
+  let targetRowIndex = -1;
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (!row) continue;
+    const keyCell = colKey >= 0 ? String(row[colKey] || '').trim() : '';
+    const reservaIdCell = colReservaId >= 0 ? String(row[colReservaId] || '').trim() : '';
+
+    if (key && keyCell && keyCell === key) {
+      targetRowIndex = i;
+      break;
+    }
+
+    if (reservaId && reservaIdCell && reservaIdCell === reservaId) {
+      targetRowIndex = i;
+      break;
+    }
+  }
+
+  if (targetRowIndex < 0) {
+    throw new Error('No se encontró la solicitud a tramitar.');
+  }
+
+  const rowValues = values[targetRowIndex];
+  const campaniaRow = colCampania >= 0 ? rowValues[colCampania] : '';
+  const correoRow = colCorreo >= 0 ? rowValues[colCorreo] : '';
+  assertReservaAccess(context, campaniaRow, correoRow);
+
+  const estadoValue = accionRaw === 'aceptar'
+    ? 'Aceptada complementaria'
+    : 'Denegada complementaria';
+  const validacionValue = accionRaw === 'aceptar' ? 'OK' : 'KO';
+
+  sheetResCobrar.getRange(targetRowIndex + 1, colEstado + 1).setValue(estadoValue);
+  sheetResCobrar.getRange(targetRowIndex + 1, colValidacion + 1).setValue(validacionValue);
+  rowValues[colEstado] = estadoValue;
+  rowValues[colValidacion] = validacionValue;
+
+  const response = {
+    success: true,
+    accion: accionRaw,
+    estadoSolicitud: estadoValue,
+    validacion: validacionValue,
+    row: targetRowIndex + 1
+  };
+
+  if (colKey >= 0) {
+    response.key = String(rowValues[colKey] || '').trim();
+  } else if (key) {
+    response.key = key;
+  }
+
+  if (colReservaId >= 0) {
+    response.reservaId = String(rowValues[colReservaId] || '').trim();
+  } else if (reservaId) {
+    response.reservaId = reservaId;
+  }
+
+  return response;
+}
+
+/************************************************************
  *  6) MOSTRAR SOLO LAS RESERVAS DEL USUARIO LOGADO (AMBOS)
  ************************************************************/
 function getMisReservas() {

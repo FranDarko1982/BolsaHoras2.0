@@ -381,6 +381,23 @@
         </div>
       </div>
 
+      <div id="tramitarSolicitudOverlay" class="modal-overlay modal-overlay--stacked" hidden>
+        <div id="tramitarSolicitudModal" class="modal-confirm" role="dialog" aria-modal="true" aria-labelledby="tramitarSolicitudTitle">
+          <div class="modal-confirm-icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" focusable="false" role="img">
+              <path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 5v5l4 2-.8 1.6L11 13V7z"/>
+            </svg>
+          </div>
+          <h3 id="tramitarSolicitudTitle" class="modal-confirm-title">Tramitar solicitud</h3>
+          <p id="tramitarSolicitudMessage" class="modal-confirm-message">Selecciona una acción para esta solicitud de cobro.</p>
+          <div class="modal-confirm-actions">
+            <button type="button" id="tramitarSolicitudAceptar" class="btn btn-primary">Aceptar</button>
+            <button type="button" id="tramitarSolicitudDenegar" class="btn btn-danger">Denegar</button>
+            <button type="button" id="tramitarSolicitudCancelar" class="btn btn-secondary">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
       <div id="editSolicitudOverlay" class="modal-overlay" hidden>
         <div id="editSolicitudModal" role="dialog" aria-modal="true" aria-labelledby="editSolicitudTitle">
           <button type="button" id="editSolicitudClose" class="modal-close" aria-label="Cerrar">×</button>
@@ -581,9 +598,28 @@
           accept: document.getElementById('deleteSolicitudSuccessAccept')
         };
 
+        const tramitarModal = {
+          overlay: document.getElementById('tramitarSolicitudOverlay'),
+          modal: document.getElementById('tramitarSolicitudModal'),
+          title: document.getElementById('tramitarSolicitudTitle'),
+          message: document.getElementById('tramitarSolicitudMessage'),
+          buttons: {
+            accept: document.getElementById('tramitarSolicitudAceptar'),
+            deny: document.getElementById('tramitarSolicitudDenegar'),
+            cancel: document.getElementById('tramitarSolicitudCancelar')
+          }
+        };
+
         const editModalState = {
           solicitud: null,
           submitting: false
+        };
+
+        const tramitarModalState = {
+          solicitud: null,
+          identifiers: { key: '', reservaId: '' },
+          processing: false,
+          trigger: null
         };
 
         const misSolicitudesState = {
@@ -962,6 +998,7 @@
         updateMetricHelpers(accessContext.role);
         enforceSectionVisibility(accessContext);
         loadAccessContext();
+        setupTramitarSolicitudModal();
         setupEditSolicitudModal();
 
         function syncCalendarNav(mode, { updateSection = false, updateOtherButtons = true } = {}) {
@@ -1739,9 +1776,12 @@
             const estadoRaw = solicitud && solicitud.estadoSolicitud != null ? String(solicitud.estadoSolicitud) : '';
             const estado = estadoRaw.trim();
             const estadoNormalized = estado.toLowerCase();
+            const tipoRaw = solicitud && solicitud.tipo != null ? String(solicitud.tipo) : '';
+            const tipoNormalized = tipoRaw.trim().toLowerCase();
             const keyValue = solicitud && solicitud.key != null ? String(solicitud.key).trim() : '';
             const reservaIdValue = solicitud && solicitud.reservaId != null ? String(solicitud.reservaId).trim() : '';
             const identifierValue = keyValue || reservaIdValue;
+            const canTramitar = accessContext.isAdmin || accessContext.isGestor;
 
             let hasAction = false;
             const actionsWrapper = document.createElement('div');
@@ -1751,6 +1791,30 @@
               const editButton = createActionButton('Editar', 'table-action-button table-action-button--secondary');
               editButton.addEventListener('click', () => handleEditarSolicitud(solicitud));
               actionsWrapper.appendChild(editButton);
+              hasAction = true;
+            }
+
+            if (tipoNormalized === 'cobrar') {
+              const tramitarButton = createActionButton('Tramitar');
+              const hasIdentifier = Boolean(identifierValue);
+              const alreadyTramitada = estadoNormalized === 'aceptada complementaria' || estadoNormalized === 'denegada complementaria';
+
+              if (!hasIdentifier) {
+                tramitarButton.disabled = true;
+                tramitarButton.title = 'Falta el identificador de la solicitud.';
+              } else if (!canTramitar) {
+                tramitarButton.disabled = true;
+                tramitarButton.title = 'Solo administradores o gestores pueden tramitar solicitudes.';
+              } else if (alreadyTramitada) {
+                tramitarButton.disabled = true;
+                tramitarButton.title = 'Esta solicitud ya fue tramitada.';
+              } else {
+                tramitarButton.addEventListener('click', () => {
+                  openTramitarSolicitudModal(solicitud, { key: keyValue, reservaId: reservaIdValue });
+                });
+              }
+
+              actionsWrapper.appendChild(tramitarButton);
               hasAction = true;
             }
 
@@ -1792,6 +1856,203 @@
 
           updateDeleteButtonState();
           updateDownloadButtonState();
+        }
+
+        function normalizeIdentifierValue(value) {
+          return value == null ? '' : String(value).trim();
+        }
+
+        function openTramitarSolicitudModal(solicitud, identifiers = {}) {
+          if (!tramitarModal.overlay || !tramitarModal.buttons) return;
+
+          tramitarModalState.solicitud = solicitud || null;
+          tramitarModalState.identifiers = {
+            key: normalizeIdentifierValue(
+              (identifiers && identifiers.key) ||
+              (solicitud && (solicitud.key || solicitud.Key || solicitud.KEY))
+            ),
+            reservaId: normalizeIdentifierValue(
+              (identifiers && identifiers.reservaId) ||
+              (solicitud && (solicitud.reservaId || solicitud.idReserva || solicitud.reservaID))
+            )
+          };
+          tramitarModalState.processing = false;
+          tramitarModalState.trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+          if (tramitarModal.message) {
+            const parts = [];
+            const { reservaId } = tramitarModalState.identifiers;
+            if (reservaId) {
+              parts.push(`ID ${reservaId}`);
+            }
+            const campania = solicitud && solicitud.campania ? String(solicitud.campania).trim() : '';
+            if (campania) {
+              parts.push(campania);
+            }
+            const fecha = solicitud && solicitud.fecha ? String(solicitud.fecha).trim() : '';
+            if (fecha) {
+              parts.push(fecha);
+            }
+            tramitarModal.message.textContent = parts.length
+              ? `Selecciona una acción para la solicitud de cobro (${parts.join(' · ')}).`
+              : 'Selecciona una acción para esta solicitud de cobro.';
+          }
+
+          tramitarModal.overlay.hidden = false;
+          tramitarModal.overlay.style.display = 'flex';
+          tramitarModal.overlay.scrollTop = 0;
+
+          setTramitarProcessing(false);
+
+          const { accept, deny, cancel } = tramitarModal.buttons;
+          const focusTarget = accept && !accept.disabled
+            ? accept
+            : deny && !deny.disabled
+              ? deny
+              : cancel;
+          if (focusTarget) {
+            requestAnimationFrame(() => {
+              focusTarget.focus();
+            });
+          }
+        }
+
+        function closeTramitarSolicitudModal() {
+          if (!tramitarModal.overlay) return;
+          tramitarModal.overlay.hidden = true;
+          tramitarModal.overlay.style.display = 'none';
+
+          const trigger = tramitarModalState.trigger;
+          tramitarModalState.solicitud = null;
+          tramitarModalState.identifiers = { key: '', reservaId: '' };
+          tramitarModalState.processing = false;
+          tramitarModalState.trigger = null;
+
+          if (trigger && typeof trigger.focus === 'function') {
+            requestAnimationFrame(() => trigger.focus());
+          }
+        }
+
+        function setTramitarProcessing(isProcessing) {
+          tramitarModalState.processing = Boolean(isProcessing);
+          const buttons = tramitarModal.buttons || {};
+          if (buttons.accept) buttons.accept.disabled = isProcessing;
+          if (buttons.deny) buttons.deny.disabled = isProcessing;
+          if (buttons.cancel) buttons.cancel.disabled = isProcessing;
+        }
+
+        function handleTramitarSolicitud(action) {
+          const normalizedAction = typeof action === 'string' ? action.trim().toLowerCase() : '';
+          if (normalizedAction !== 'aceptar' && normalizedAction !== 'denegar') return;
+          if (!tramitarModalState.solicitud || tramitarModalState.processing) return;
+
+          const key = normalizeIdentifierValue(
+            tramitarModalState.identifiers.key ||
+            (tramitarModalState.solicitud && (tramitarModalState.solicitud.key || tramitarModalState.solicitud.Key || tramitarModalState.solicitud.KEY))
+          );
+          const reservaId = normalizeIdentifierValue(
+            tramitarModalState.identifiers.reservaId ||
+            (tramitarModalState.solicitud &&
+              (tramitarModalState.solicitud.reservaId ||
+               tramitarModalState.solicitud.idReserva ||
+               tramitarModalState.solicitud.reservaID))
+          );
+
+          if (!key && !reservaId) {
+            alert('No se pudo identificar la solicitud para tramitarla.');
+            return;
+          }
+
+          setTramitarProcessing(true);
+
+          const payload = {
+            accion: normalizedAction,
+            key: key || undefined,
+            reservaId: reservaId || undefined
+          };
+
+          const onSuccess = (response) => {
+            const estadoSolicitud = normalizeIdentifierValue(response && response.estadoSolicitud)
+              || (normalizedAction === 'aceptar' ? 'Aceptada complementaria' : 'Denegada complementaria');
+            const validacion = normalizeIdentifierValue(response && response.validacion)
+              || (normalizedAction === 'aceptar' ? 'OK' : 'KO');
+            const resolvedIdentifiers = {
+              key: normalizeIdentifierValue(response && response.key) || key,
+              reservaId: normalizeIdentifierValue(response && response.reservaId) || reservaId
+            };
+
+            setTramitarProcessing(false);
+            closeTramitarSolicitudModal();
+            updateSolicitudAfterTramitar(resolvedIdentifiers, { estadoSolicitud, validacion });
+            renderMisSolicitudesPage();
+            updateMisSolicitudesPagination();
+
+            const successMessage = normalizedAction === 'aceptar'
+              ? 'La solicitud se ha aceptado correctamente.'
+              : 'La solicitud se ha denegado correctamente.';
+            const successPromise = typeof showSuccess === 'function'
+              ? showSuccess(successMessage, 'Solicitud tramitada')
+              : Promise.resolve(alert(successMessage));
+
+            Promise.resolve(successPromise).finally(() => {
+              loadMisSolicitudes();
+            });
+          };
+
+          const onFailure = (error) => {
+            console.error('No se pudo tramitar la solicitud:', error);
+            setTramitarProcessing(false);
+            const message = error && error.message
+              ? error.message
+              : 'No se pudo tramitar la solicitud. Inténtalo de nuevo.';
+            alert(message);
+          };
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(onSuccess)
+              .withFailureHandler(onFailure)
+              .tramitarSolicitudCobrar(payload);
+          } else {
+            setTimeout(() => onFailure(new Error('Runtime local sin Google Apps Script.')), 0);
+          }
+        }
+
+        function updateSolicitudAfterTramitar(identifiers, updates) {
+          if (!updates || typeof updates !== 'object') return;
+          const key = normalizeIdentifierValue(identifiers && identifiers.key);
+          const reservaId = normalizeIdentifierValue(identifiers && identifiers.reservaId);
+          if (!key && !reservaId) return;
+
+          const applyUpdates = (item) => {
+            if (!item || typeof item !== 'object') return;
+            if (Object.prototype.hasOwnProperty.call(updates, 'estadoSolicitud')) {
+              item.estadoSolicitud = updates.estadoSolicitud;
+            }
+            if (Object.prototype.hasOwnProperty.call(updates, 'validacion')) {
+              item.validacion = updates.validacion;
+            }
+          };
+
+          const matches = (item) => {
+            if (!item || typeof item !== 'object') return false;
+            const itemKey = normalizeIdentifierValue(item.key || item.Key || item.KEY);
+            if (key && itemKey) {
+              return itemKey === key;
+            }
+            const itemReservaId = normalizeIdentifierValue(item.reservaId || item.idReserva || item.reservaID);
+            if (reservaId && itemReservaId) {
+              return itemReservaId === reservaId;
+            }
+            return false;
+          };
+
+          misSolicitudesState.all.forEach(item => {
+            if (matches(item)) applyUpdates(item);
+          });
+          misSolicitudesState.filtered.forEach(item => {
+            if (matches(item)) applyUpdates(item);
+          });
         }
 
         function updateMisSolicitudesPagination() {
@@ -2188,6 +2449,45 @@
               handleFailure(new Error('Runtime local sin Google Apps Script.'));
             }, 0);
           }
+        }
+
+        function setupTramitarSolicitudModal() {
+          const overlay = tramitarModal.overlay;
+          const buttons = tramitarModal.buttons || {};
+          if (!overlay || (!buttons.accept && !buttons.deny && !buttons.cancel)) {
+            return;
+          }
+
+          const handleOverlayClick = (event) => {
+            if (event.target === overlay && !tramitarModalState.processing) {
+              closeTramitarSolicitudModal();
+            }
+          };
+
+          overlay.addEventListener('click', handleOverlayClick);
+
+          if (buttons.cancel) {
+            buttons.cancel.addEventListener('click', (event) => {
+              event.preventDefault();
+              if (tramitarModalState.processing) return;
+              closeTramitarSolicitudModal();
+            });
+          }
+
+          if (buttons.accept) {
+            buttons.accept.addEventListener('click', () => handleTramitarSolicitud('aceptar'));
+          }
+
+          if (buttons.deny) {
+            buttons.deny.addEventListener('click', () => handleTramitarSolicitud('denegar'));
+          }
+
+          document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && overlay && !overlay.hidden && !tramitarModalState.processing) {
+              event.preventDefault();
+              closeTramitarSolicitudModal();
+            }
+          });
         }
 
         function setupEditSolicitudModal() {
