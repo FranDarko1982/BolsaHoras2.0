@@ -1394,6 +1394,12 @@ function tramitarSolicitudCobrar(options) {
     'Estado Solicitud',
     'Estado'
   ]);
+  const colTipo = _findFirstIndex(headerMap, [
+    'Tipo',
+    'Tipo petición',
+    'Tipo Peticion',
+    'Tipo solicitud'
+  ]);
   const colValidacion = _findFirstIndex(headerMap, [
     'Validación',
     'Validacion',
@@ -1405,8 +1411,8 @@ function tramitarSolicitudCobrar(options) {
   const colCampania = _findFirstIndex(headerMap, ['Campaña', 'Campana']);
   const colCorreo = _findFirstIndex(headerMap, ['Correo', 'Email', 'Mail']);
 
-  if (colEstado < 0) {
-    throw new Error('No se encontró la columna de estado en la hoja de reservas complementarias.');
+  if (colTipo < 0) {
+    throw new Error('No se encontró la columna de tipo en la hoja de reservas complementarias.');
   }
   if (colValidacion < 0) {
     throw new Error('No se encontró la columna de validación en la hoja de reservas complementarias.');
@@ -1442,20 +1448,20 @@ function tramitarSolicitudCobrar(options) {
   const correoRow = colCorreo >= 0 ? rowValues[colCorreo] : '';
   assertReservaAccess(context, campaniaRow, correoRow);
 
-  const estadoValue = accionRaw === 'aceptar'
+  const tipoComplementaria = accionRaw === 'aceptar'
     ? 'Aceptada complementaria'
     : 'Denegada complementaria';
   const validacionValue = accionRaw === 'aceptar' ? 'OK' : 'KO';
 
-  sheetResCobrar.getRange(targetRowIndex + 1, colEstado + 1).setValue(estadoValue);
+  sheetResCobrar.getRange(targetRowIndex + 1, colTipo + 1).setValue(tipoComplementaria);
   sheetResCobrar.getRange(targetRowIndex + 1, colValidacion + 1).setValue(validacionValue);
-  rowValues[colEstado] = estadoValue;
+  rowValues[colTipo] = tipoComplementaria;
   rowValues[colValidacion] = validacionValue;
 
   const response = {
     success: true,
     accion: accionRaw,
-    estadoSolicitud: estadoValue,
+    tipo: tipoComplementaria,
     validacion: validacionValue,
     row: targetRowIndex + 1
   };
@@ -1470,6 +1476,10 @@ function tramitarSolicitudCobrar(options) {
     response.reservaId = String(rowValues[colReservaId] || '').trim();
   } else if (reservaId) {
     response.reservaId = reservaId;
+  }
+
+  if (colEstado >= 0) {
+    response.estadoSolicitud = String(rowValues[colEstado] || '').trim();
   }
 
   return response;

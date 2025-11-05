@@ -1797,7 +1797,11 @@
             if (tipoNormalized === 'cobrar') {
               const tramitarButton = createActionButton('Tramitar');
               const hasIdentifier = Boolean(identifierValue);
-              const alreadyTramitada = estadoNormalized === 'aceptada complementaria' || estadoNormalized === 'denegada complementaria';
+              const alreadyTramitada =
+                estadoNormalized === 'aceptada complementaria' ||
+                estadoNormalized === 'denegada complementaria' ||
+                tipoNormalized === 'aceptada complementaria' ||
+                tipoNormalized === 'denegada complementaria';
 
               if (!hasIdentifier) {
                 tramitarButton.disabled = true;
@@ -1972,7 +1976,7 @@
           };
 
           const onSuccess = (response) => {
-            const estadoSolicitud = normalizeIdentifierValue(response && response.estadoSolicitud)
+            const tipoValue = normalizeIdentifierValue(response && response.tipo)
               || (normalizedAction === 'aceptar' ? 'Aceptada complementaria' : 'Denegada complementaria');
             const validacion = normalizeIdentifierValue(response && response.validacion)
               || (normalizedAction === 'aceptar' ? 'OK' : 'KO');
@@ -1983,7 +1987,7 @@
 
             setTramitarProcessing(false);
             closeTramitarSolicitudModal();
-            updateSolicitudAfterTramitar(resolvedIdentifiers, { estadoSolicitud, validacion });
+            updateSolicitudAfterTramitar(resolvedIdentifiers, { tipo: tipoValue, validacion });
             renderMisSolicitudesPage();
             updateMisSolicitudesPagination();
 
@@ -2028,6 +2032,9 @@
             if (!item || typeof item !== 'object') return;
             if (Object.prototype.hasOwnProperty.call(updates, 'estadoSolicitud')) {
               item.estadoSolicitud = updates.estadoSolicitud;
+            }
+            if (Object.prototype.hasOwnProperty.call(updates, 'tipo')) {
+              item.tipo = updates.tipo;
             }
             if (Object.prototype.hasOwnProperty.call(updates, 'validacion')) {
               item.validacion = updates.validacion;
