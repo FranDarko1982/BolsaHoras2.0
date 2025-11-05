@@ -1,0 +1,2628 @@
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const navButtons = Array.from(document.querySelectorAll('.sidebar-item'));
+        const sections = Array.from(document.querySelectorAll('.app-section'));
+        let activeCalendarMode = 'trabajar';
+        const reportesNavButton = document.querySelector('.sidebar-item[data-target="reportes"]');
+        const reportesSection = document.querySelector('.app-section[data-section="reportes"]');
+        const fallbackDashboardData = {
+          role: 'usuario',
+          campania: '',
+          campanias: [],
+          usuarioNombre: 'Fran',
+          lastUpdated: new Date().toLocaleDateString('es-ES'),
+          metrics: {
+            totalSolicitudes: 12,
+            proximasSolicitudes: 2,
+            totalHorasTrabajar: 6,
+            totalHorasLibrar: 8,
+            saldo: 2
+          },
+          proximasSolicitudes: [
+            {
+              campania: 'Barcelona',
+              tipo: 'Trabajar',
+              fecha: '04/10/2025',
+              horario: '08:00-16:30'
+            },
+            {
+              campania: 'People',
+              tipo: 'Librar',
+              fecha: '06/10/2025 - 10/10/2025',
+              horario: '09:00-17:00'
+            }
+          ],
+          chart: {
+            labels: ['May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct'],
+            values: [0, 0, 0, 4, 5, 6]
+          }
+        };
+        const fallbackMisSolicitudesData = [];
+
+        const horasUploadConfigs = [
+          {
+            button: document.querySelector('.control-panel-btn--trabajar'),
+            input: document.getElementById('uploadHorasTrabajarInput'),
+            serverFunction: 'cargarHorasTrabajarDesdeExcel',
+            processingLabel: 'Importando...'
+          },
+          {
+            button: document.querySelector('.control-panel-btn--librar'),
+            input: document.getElementById('uploadHorasLibrarInput'),
+
+            serverFunction: 'cargarHorasLibrarDesdeExcel',
+            processingLabel: 'Importando...'
+          }
+        ];
+
+        const horasUploads = horasUploadConfigs
+          .map(setupHorasUpload)
+          .filter(Boolean);
+
+        const editModal = {
+          overlay: document.getElementById('editSolicitudOverlay'),
+          modal: document.getElementById('editSolicitudModal'),
+          form: document.getElementById('editSolicitudForm'),
+          error: document.getElementById('editSolicitudError'),
+          fields: {
+            key: document.getElementById('editSolicitudKey'),
+            tipo: document.getElementById('editSolicitudTipo'),
+            correo: document.getElementById('editSolicitudCorreo'),
+            campania: document.getElementById('editSolicitudCampania'),
+            fecha: document.getElementById('editSolicitudFecha'),
+            horaInicio: document.getElementById('editSolicitudHoraInicio'),
+            horas: document.getElementById('editSolicitudHoras')
+          },
+          buttons: {
+            save: document.getElementById('editSolicitudSave'),
+            cancel: document.getElementById('editSolicitudCancel'),
+            close: document.getElementById('editSolicitudClose'),
+            delete: document.getElementById('editSolicitudDelete')
+          }
+        };
+
+        const deleteConfirmModal = {
+          overlay: document.getElementById('deleteSolicitudConfirmOverlay'),
+          modal: document.getElementById('deleteSolicitudConfirmModal'),
+          title: document.getElementById('deleteSolicitudConfirmTitle'),
+          message: document.getElementById('deleteSolicitudConfirmMessage'),
+          confirm: document.getElementById('deleteSolicitudConfirmAccept'),
+          cancel: document.getElementById('deleteSolicitudConfirmCancel')
+        };
+
+        const deleteSuccessModal = {
+          overlay: document.getElementById('deleteSolicitudSuccessOverlay'),
+          modal: document.getElementById('deleteSolicitudSuccessModal'),
+          title: document.getElementById('deleteSolicitudSuccessTitle'),
+          message: document.getElementById('deleteSolicitudSuccessMessage'),
+          accept: document.getElementById('deleteSolicitudSuccessAccept')
+        };
+
+        const tramitarModal = {
+          overlay: document.getElementById('tramitarSolicitudOverlay'),
+          modal: document.getElementById('tramitarSolicitudModal'),
+          title: document.getElementById('tramitarSolicitudTitle'),
+          message: document.getElementById('tramitarSolicitudMessage'),
+          buttons: {
+            accept: document.getElementById('tramitarSolicitudAceptar'),
+            deny: document.getElementById('tramitarSolicitudDenegar'),
+            cancel: document.getElementById('tramitarSolicitudCancelar')
+          }
+        };
+
+        const editModalState = {
+          solicitud: null,
+          submitting: false
+        };
+
+        const tramitarModalState = {
+          solicitud: null,
+          identifiers: { key: '', reservaId: '' },
+          processing: false,
+          trigger: null
+        };
+
+        const misSolicitudesState = {
+          all: [],
+          filtered: [],
+          campaigns: [],
+          currentPage: 1,
+          pageSize: 30,
+          filters: {
+            dateStart: '',
+            dateEnd: '',
+            campania: '',
+            correo: '',
+            numeroEmpleado: '',
+            reservaId: ''
+          }
+        };
+
+        const misSolicitudesUI = {
+          tbody: document.getElementById('misSolicitudesBody'),
+          selectAllCheckbox: document.getElementById('selectAllCheckbox'),
+          deleteSelectedButton: document.getElementById('deleteSelectedButton'),
+          downloadCsvButton: document.getElementById('downloadMisSolicitudesCsv'),
+          filters: {
+            container: document.getElementById('misSolicitudesFilters'),
+            dateStart: document.getElementById('misSolicitudesFechaInicio'),
+            dateEnd: document.getElementById('misSolicitudesFechaFin'),
+            campania: document.getElementById('misSolicitudesCampania'),
+            correo: document.getElementById('misSolicitudesCorreo'),
+            numeroEmpleado: document.getElementById('misSolicitudesEmpleado'),
+            reservaId: document.getElementById('misSolicitudesId'),
+            reset: document.getElementById('misSolicitudesFiltersReset')
+          },
+          pagination: {
+            container: document.getElementById('misSolicitudesPagination'),
+            info: document.getElementById('misSolicitudesPaginationInfo'),
+            prev: document.getElementById('misSolicitudesPrev'),
+            next: document.getElementById('misSolicitudesNext')
+          }
+        };
+
+        const deleteMultipleConfirmModal = {
+          overlay: document.getElementById('deleteMultipleConfirmOverlay'),
+          message: document.getElementById('deleteMultipleConfirmMessage'),
+          confirm: document.getElementById('deleteMultipleConfirmAccept'),
+          cancel: document.getElementById('deleteMultipleConfirmCancel')
+        };
+
+        const deleteMultipleSuccessModal = {
+          overlay: document.getElementById('deleteMultipleSuccessOverlay'),
+          message: document.getElementById('deleteMultipleSuccessMessage'),
+          accept: document.getElementById('deleteMultipleSuccessAccept')
+        };
+
+        initializeMisSolicitudesFilters();
+        setupMultipleDelete();
+        setupMisSolicitudesDownload();
+
+        let dashboardLoaded = false;
+        let solicitudesChartInstance = null;
+        let accessContext = {
+          role: 'usuario',
+          isAdmin: false,
+          isGestor: false,
+          email: '',
+          campania: '',
+          campanias: [],
+          authorized: false
+        };
+        const DEFAULT_ACCESS_CONTEXT = {
+          role: 'usuario',
+          isAdmin: false,
+          isGestor: false,
+          email: '',
+          campania: '',
+          campanias: [],
+          authorized: false
+        };
+
+        function setupHorasUpload(config) {
+          if (!config || !config.button || !config.input || !config.serverFunction) {
+            return null;
+          }
+
+          const state = {
+            button: config.button,
+            input: config.input,
+            serverFunction: config.serverFunction,
+            processingLabel: config.processingLabel || 'Procesando...',
+            originalText: config.button.textContent,
+            uploading: false
+          };
+
+          state.button.addEventListener('click', () => {
+            if (state.uploading) return;
+            state.input.click();
+          });
+
+          state.input.addEventListener('change', (event) => {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            startHorasUpload(state, file);
+          });
+
+          return state;
+        }
+
+        function startHorasUpload(state, file) {
+          if (!state || !file) return;
+
+          const allowedExtensions = /\.(xlsx|xls|csv)$/i;
+          if (!allowedExtensions.test(file.name || '')) {
+            alert('Formato de archivo no soportado. Usa un Excel o CSV.');
+            resetHorasUploadInput(state);
+            return;
+          }
+
+          if (typeof FileReader === 'undefined') {
+            alert('El navegador no soporta la lectura de archivos.');
+            resetHorasUploadInput(state);
+            return;
+          }
+
+          setHorasUploadState(state, true, state.processingLabel);
+          const reader = new FileReader();
+
+          reader.onload = (event) => {
+            const result = event && event.target ? event.target.result : null;
+            if (!result || typeof result !== 'string') {
+              setHorasUploadState(state, false);
+              alert('No se pudo leer el archivo seleccionado.');
+              resetHorasUploadInput(state);
+              return;
+            }
+
+            const base64Index = result.indexOf('base64,');
+            const base64Data = base64Index >= 0 ? result.substring(base64Index + 7) : '';
+            if (!base64Data) {
+              setHorasUploadState(state, false);
+              alert('No se pudo procesar el archivo seleccionado.');
+              resetHorasUploadInput(state);
+              return;
+            }
+
+            if (typeof google === 'undefined' || !google.script || !google.script.run) {
+              setHorasUploadState(state, false);
+              alert('Esta acción solo está disponible desde la aplicación publicada.');
+              resetHorasUploadInput(state);
+              return;
+            }
+
+            const uploadCall = google.script.run
+              .withSuccessHandler((response) => {
+                setHorasUploadState(state, false);
+                resetHorasUploadInput(state);
+                if (response && typeof response === 'object') {
+                  const rows = typeof response.importedRows === 'number' ? response.importedRows : null;
+                  const msg = response.message || (rows != null
+                    ? `Archivo procesado. Registros importados: ${rows}.`
+                    : 'Archivo procesado correctamente.');
+                  alert(msg);
+                } else {
+                  alert('Archivo procesado correctamente.');
+                }
+              })
+              .withFailureHandler((error) => {
+                setHorasUploadState(state, false);
+                resetHorasUploadInput(state);
+                const message = error && error.message ? error.message : String(error || 'Error desconocido');
+                alert(`Error al cargar el archivo: ${message}`);
+              });
+
+            if (typeof uploadCall[state.serverFunction] === 'function') {
+              uploadCall[state.serverFunction]({
+                fileName: file.name,
+                mimeType: file.type || '',
+                base64: base64Data
+              });
+            } else {
+              setHorasUploadState(state, false);
+              resetHorasUploadInput(state);
+              alert('No se encontró la acción remota para la importación.');
+            }
+          };
+
+          reader.onerror = () => {
+            setHorasUploadState(state, false);
+            alert('No se pudo leer el archivo seleccionado.');
+            resetHorasUploadInput(state);
+          };
+
+          reader.readAsDataURL(file);
+        }
+
+        function setHorasUploadState(state, isUploading, label) {
+          if (!state || !state.button) return;
+          state.uploading = isUploading;
+          if (isUploading) {
+            state.button.disabled = true;
+            state.button.textContent = label || 'Procesando...';
+          } else {
+            state.button.disabled = false;
+            state.button.textContent = state.originalText || state.button.textContent;
+          }
+        }
+
+        function resetHorasUploadInput(state) {
+          if (state && state.input) {
+            state.input.value = '';
+          }
+        }
+
+        function canAccessSection(target) {
+          return target !== 'reportes' || accessContext.isAdmin || accessContext.isGestor;
+        }
+
+        function enforceSectionVisibility(context) {
+          const { isAdmin, isGestor } = context || accessContext;
+          const panelControlNav = document.querySelector('.sidebar-item[data-target="panel-control"]');
+          const panelControlSection = document.querySelector('.app-section[data-section="panel-control"]');
+
+          if (reportesNavButton && reportesSection) {
+            const canSeeReportes = isAdmin || isGestor;
+            reportesNavButton.hidden = false;
+            reportesNavButton.style.display = canSeeReportes ? '' : 'none';
+            reportesSection.hidden = !canSeeReportes;
+          }
+
+          if (panelControlNav && panelControlSection) {
+            const canSeePanel = isAdmin || isGestor;
+            panelControlNav.hidden = false;
+            panelControlNav.style.display = canSeePanel ? '' : 'none';
+            panelControlSection.hidden = !canSeePanel;
+          }
+        }
+
+        function updateMetricHelpers(role) {
+          const normalizedRole = (typeof role === 'string' ? role : '').toLowerCase();
+          const helperTextsByRole = {
+            admin: {
+              'total-solicitudes': 'todas las solicitudes',
+              proximas: 'solicitudes futuras (todas)',
+              'horas-trabajar': 'acumuladas (global)',
+              'horas-librar': 'acumuladas (global)',
+              saldo: 'librar – trabajar (global)'
+            },
+            gestor: {
+              'total-solicitudes': 'solicitudes de tu campaña',
+              proximas: 'solicitudes futuras (campaña)',
+              'horas-trabajar': 'acumuladas (campaña)',
+              'horas-librar': 'acumuladas (campaña)',
+              saldo: 'librar – trabajar (campaña)'
+            },
+            usuario: {
+              'total-solicitudes': 'todas tus solicitudes',
+              proximas: 'solicitudes futuras',
+              'horas-trabajar': 'acumuladas',
+              'horas-librar': 'acumuladas',
+              saldo: 'librar – trabajar'
+            }
+          };
+
+          const helperTexts = helperTextsByRole[normalizedRole] || helperTextsByRole.usuario;
+
+          Object.entries(helperTexts).forEach(([metric, text]) => {
+            const helper = document.querySelector(`[data-metric="${metric}"] .metric-helper`);
+            if (helper) {
+              helper.textContent = text;
+            }
+          });
+        }
+
+        function applyAccessContext(context = DEFAULT_ACCESS_CONTEXT) {
+          const rawRole = context && typeof context.role === 'string'
+            ? context.role.trim().toLowerCase()
+            : '';
+          const normalizedRole = rawRole === 'admin'
+            ? 'admin'
+            : rawRole === 'gestor'
+              ? 'gestor'
+              : 'usuario';
+
+          const isAdmin = normalizedRole === 'admin';
+          const isGestor = normalizedRole === 'gestor';
+
+          const email = context && typeof context.email === 'string'
+            ? context.email.trim().toLowerCase()
+            : accessContext.email;
+
+          let campanias = Array.isArray(context && context.campanias)
+            ? context.campanias
+                .map(item => (item == null ? '' : String(item).trim()))
+                .filter(Boolean)
+            : Array.isArray(accessContext.campanias)
+              ? accessContext.campanias.slice()
+              : [];
+
+          let campania = context && typeof context.campania === 'string'
+            ? context.campania.trim()
+            : '';
+
+          if (campania) {
+            if (!campanias.some(item => item.toLowerCase() === campania.toLowerCase())) {
+              campanias.unshift(campania);
+            }
+          } else if (campanias.length) {
+            campania = campanias[0];
+          } else if (accessContext.campania) {
+            campania = accessContext.campania;
+          }
+
+          const dedupedCampanias = [];
+          const seenCampanias = new Set();
+          campanias.forEach(item => {
+            const key = item.toLowerCase();
+            if (!seenCampanias.has(key)) {
+              seenCampanias.add(key);
+              dedupedCampanias.push(item);
+            }
+          });
+          if (campania && !dedupedCampanias.some(item => item.toLowerCase() === campania.toLowerCase())) {
+            dedupedCampanias.unshift(campania);
+          }
+
+          if (!campania && dedupedCampanias.length) {
+            campania = dedupedCampanias[0];
+          }
+
+          const authorized = context && typeof context.authorized === 'boolean'
+            ? context.authorized
+            : accessContext.authorized;
+
+          const changed =
+            normalizedRole !== accessContext.role ||
+            email !== accessContext.email ||
+            isAdmin !== accessContext.isAdmin ||
+            isGestor !== accessContext.isGestor ||
+            campania !== accessContext.campania ||
+            authorized !== accessContext.authorized;
+
+          accessContext = {
+            role: normalizedRole,
+            isAdmin,
+            isGestor,
+            email,
+            campania,
+            campanias: dedupedCampanias,
+            authorized
+          };
+
+          updateMetricHelpers(normalizedRole);
+          enforceSectionVisibility(accessContext);
+
+          if (changed && !isAdmin) {
+            const activeSection = sections.find(section => section.classList.contains('is-active'));
+            if (activeSection && activeSection.dataset.section === 'reportes') {
+              activateSection('inicio');
+            }
+          }
+        }
+
+        function loadAccessContext() {
+          const onSuccess = (context) => applyAccessContext(context || DEFAULT_ACCESS_CONTEXT);
+          const onFailure = () => applyAccessContext(DEFAULT_ACCESS_CONTEXT);
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(onSuccess)
+              .withFailureHandler(onFailure)
+              .getAccessContext();
+          } else {
+            onFailure();
+          }
+        }
+
+        updateMetricHelpers(accessContext.role);
+        enforceSectionVisibility(accessContext);
+        loadAccessContext();
+        setupTramitarSolicitudModal();
+        setupEditSolicitudModal();
+
+        function syncCalendarNav(mode, { updateSection = false, updateOtherButtons = true } = {}) {
+          const normalized = mode === 'librar' ? 'librar' : 'trabajar';
+          activeCalendarMode = normalized;
+
+          navButtons.forEach(btn => {
+            if (btn.dataset.target === 'calendario') {
+              btn.classList.toggle('active', btn.dataset.calendarMode === normalized);
+            } else if (updateOtherButtons) {
+              btn.classList.remove('active');
+            }
+          });
+
+          if (updateSection) {
+            sections.forEach(section => {
+              section.classList.toggle('is-active', section.dataset.section === 'calendario');
+            });
+          }
+        }
+
+        window.syncCalendarNav = function(mode, options) {
+          syncCalendarNav(mode, options);
+        };
+
+        function activateSection(target, { button = null, calendarMode = null } = {}) {
+          if (!canAccessSection(target)) {
+            return;
+          }
+          if (target === 'calendario') {
+            const selectedMode = calendarMode || activeCalendarMode || 'trabajar';
+            syncCalendarNav(selectedMode, { updateSection: true, updateOtherButtons: true });
+          } else {
+            navButtons.forEach(btn => {
+              const matchesTarget = btn === button || (!button && btn.dataset.target === target && !btn.dataset.calendarMode);
+              btn.classList.toggle('active', matchesTarget);
+            });
+            sections.forEach(section => {
+              const isActive = section.dataset.section === target;
+              section.classList.toggle('is-active', isActive);
+            });
+          }
+
+          if (target === 'inicio' && !dashboardLoaded) {
+            loadInicioDashboard();
+          }
+
+          if (target === 'mis-reservas') {
+            loadMisSolicitudes();
+          }
+
+          if (target === 'calendario') {
+            const modeToShow = calendarMode || activeCalendarMode || 'trabajar';
+            try {
+              if (modeToShow === 'librar') {
+                if (typeof mostrarCalendarioLibrar === 'function') {
+                  mostrarCalendarioLibrar({ skipNavUpdate: true });
+                }
+                setTimeout(() => {
+                  if (typeof calendarLibrar !== 'undefined' && calendarLibrar) {
+                    calendarLibrar.updateSize();
+                  }
+                }, 120);
+              } else {
+                if (typeof volverCalendario === 'function') {
+                  volverCalendario({ skipNavUpdate: true });
+                }
+                setTimeout(() => {
+                  if (typeof calendar !== 'undefined' && calendar) {
+                    calendar.updateSize();
+                  }
+                }, 120);
+              }
+            } catch (err) {
+              console.log('No se pudo actualizar el calendario:', err);
+            }
+          }
+        }
+
+        function loadInicioDashboard() {
+          const onSuccess = (payload) => {
+            const data = (payload && typeof payload === 'object') ? payload : fallbackDashboardData;
+            renderInicioDashboard(data);
+          };
+          const onFailure = () => {
+            renderInicioDashboard(fallbackDashboardData);
+          };
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(onSuccess)
+              .withFailureHandler(onFailure)
+              .getInicioDashboardData();
+          } else {
+            onSuccess(fallbackDashboardData);
+          }
+        }
+
+        function renderInicioDashboard(data) {
+          dashboardLoaded = true;
+          const normalizedRole = data && typeof data.role === 'string'
+            ? data.role
+            : accessContext.role;
+          const nextContext = { role: normalizedRole };
+          if (data && typeof data.email === 'string') {
+            nextContext.email = data.email;
+          }
+          if (data && typeof data.campania === 'string') {
+            nextContext.campania = data.campania;
+          }
+          if (data && Array.isArray(data.campanias)) {
+            nextContext.campanias = data.campanias;
+          }
+          if (data && typeof data.authorized === 'boolean') {
+            nextContext.authorized = data.authorized;
+          }
+          applyAccessContext(nextContext);
+          const metrics = data.metrics || {};
+          setMetricValue('metricTotalSolicitudes', metrics.totalSolicitudes);
+          setMetricValue('metricProximasSolicitudes', metrics.proximasSolicitudes);
+          setMetricValue('metricHorasTrabajar', metrics.totalHorasTrabajar);
+          setMetricValue('metricHorasLibrar', metrics.totalHorasLibrar);
+          setMetricValue('metricSaldo', metrics.saldo, { showSign: true });
+
+          const welcome = document.getElementById('dashboardWelcomeTitle');
+          const nombre = data.usuarioNombre ? String(data.usuarioNombre).trim() : '';
+          if (welcome) {
+            welcome.textContent = nombre ? `Bienvenido, ${nombre}!` : 'Bienvenido/a';
+          }
+
+          const meta = document.getElementById('dashboardMeta');
+          const lastUpdated = document.getElementById('dashboardLastUpdated');
+          if (meta && lastUpdated) {
+            if (data.lastUpdated) {
+              meta.hidden = false;
+              lastUpdated.textContent = data.lastUpdated;
+            } else {
+              meta.hidden = true;
+            }
+          }
+
+          renderSolicitudesTable(Array.isArray(data.proximasSolicitudes) ? data.proximasSolicitudes : []);
+          renderSolicitudesChart(data.chart);
+        }
+
+        function setMetricValue(elementId, value, options = {}) {
+          const el = document.getElementById(elementId);
+          if (!el) return;
+          el.textContent = formatNumber(value, options);
+        }
+
+        function formatNumber(value, { showSign = false } = {}) {
+          const num = Number(value);
+          if (!Number.isFinite(num)) {
+            return '0';
+          }
+          const formatted = num.toLocaleString('es-ES', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+          });
+          if (showSign && num > 0) {
+            return `+${formatted}`;
+          }
+          return formatted;
+        }
+
+        function renderSolicitudesTable(solicitudes) {
+          const tbody = document.getElementById('dashboardUpcomingBody');
+          if (!tbody) return;
+          tbody.innerHTML = '';
+
+          if (!solicitudes.length) {
+            const row = document.createElement('tr');
+            row.className = 'table-placeholder';
+            const cell = document.createElement('td');
+            cell.colSpan = 4;
+            cell.textContent = 'No hay solicitudes próximas.';
+            row.appendChild(cell);
+            tbody.appendChild(row);
+            return;
+          }
+
+          const normalizeFecha = (valor) => {
+            if (!valor && valor !== 0) return '';
+            if (valor instanceof Date) {
+              return valor.toLocaleDateString('es-ES');
+            }
+            return String(valor).trim();
+          };
+
+          solicitudes.slice(0, 5).forEach(solicitud => {
+            const row = document.createElement('tr');
+            const fechaValor = (() => {
+              const fechaDirecta = solicitud && solicitud.fecha != null ? normalizeFecha(solicitud.fecha) : '';
+              if (fechaDirecta) return fechaDirecta;
+              const inicio = solicitud && solicitud.fechaInicio != null ? normalizeFecha(solicitud.fechaInicio) : '';
+              const fin = solicitud && solicitud.fechaFin != null ? normalizeFecha(solicitud.fechaFin) : '';
+              if (inicio && fin && inicio !== fin) {
+                return `${inicio} - ${fin}`;
+              }
+              return inicio || fin;
+            })();
+
+            const rowData = {
+              campania: solicitud && (solicitud.campania || solicitud.sala),
+              tipo: solicitud && solicitud.tipo,
+              fecha: fechaValor,
+              horario: solicitud && (solicitud.horario || solicitud.franja || solicitud.horas)
+            };
+
+            ['campania', 'tipo', 'fecha', 'horario'].forEach(key => {
+              const cell = document.createElement('td');
+              const valor = rowData[key] != null ? String(rowData[key]).trim() : '';
+              cell.textContent = valor || '—';
+              if (key === 'fecha') {
+                cell.classList.add('table-cell-date');
+              }
+              row.appendChild(cell);
+            });
+            tbody.appendChild(row);
+          });
+        }
+
+        function renderSolicitudesChart(chartData) {
+          const canvas = document.getElementById('dashboardSolicitudesChart');
+          if (!canvas || typeof Chart === 'undefined') return;
+
+          if (!chartData || !Array.isArray(chartData.labels) || !chartData.labels.length) {
+            if (solicitudesChartInstance) {
+              solicitudesChartInstance.destroy();
+              solicitudesChartInstance = null;
+            }
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            return;
+          }
+
+          const ctx = canvas.getContext('2d');
+          if (solicitudesChartInstance) {
+            solicitudesChartInstance.destroy();
+          }
+
+          const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+          gradient.addColorStop(0, '#f062b8');
+          gradient.addColorStop(1, '#bc348b');
+
+          solicitudesChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: chartData.labels,
+              datasets: [
+                {
+                  data: chartData.values || [],
+                  label: 'Horas solicitadas',
+                  backgroundColor: gradient,
+                  borderRadius: 14,
+                  borderSkipped: false,
+                  maxBarThickness: 46
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                x: {
+                  grid: { display: false },
+                  ticks: {
+                    color: '#7b718c',
+                    font: { family: 'Nunito', weight: '600' }
+                  }
+                },
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    stepSize: 1,
+                    color: '#7b718c',
+                    font: { family: 'Nunito', weight: '600' }
+                  },
+                  grid: {
+                    color: 'rgba(188, 52, 139, 0.12)',
+                    drawBorder: false
+                  }
+                }
+              },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: '#2f2a3d',
+                  titleColor: '#fff',
+                  bodyColor: '#fff',
+                  displayColors: false,
+                  callbacks: {
+                    label: context => `Horas solicitadas: ${formatNumber(context.parsed.y)}`
+                  }
+                }
+              }
+            }
+          });
+        }
+
+        function loadMisSolicitudes() {
+          setMisSolicitudesPlaceholder('Cargando solicitudes…');
+
+          const onSuccess = (data) => {
+            renderMisSolicitudesTable(Array.isArray(data) ? data : []);
+          };
+
+          const onFailure = () => {
+            renderMisSolicitudesTable([]);
+          };
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(onSuccess)
+              .withFailureHandler(onFailure)
+              .getSolicitudesAcumuladas();
+          } else {
+            onSuccess(fallbackMisSolicitudesData);
+          }
+        }
+
+        function renderMisSolicitudesTable(solicitudes) {
+          if (!misSolicitudesUI.tbody) return;
+
+          const data = Array.isArray(solicitudes) ? solicitudes : [];
+          const normalizedData = data
+            .filter(item => item && typeof item === 'object')
+            .map(item => {
+              const reservaId = String(
+                item.reservaId ||
+                item.idReserva ||
+                item['ID reserva'] ||
+                item.reservaID ||
+                item.id ||
+                ''
+              ).trim();
+              const numeroEmpleado = String(
+                item.numeroEmpleado ||
+                item.numeroempleado ||
+                item['NºEmpleado'] ||
+                item['Nº empleado'] ||
+                item['Numero empleado'] ||
+                item['NumeroEmpleado'] ||
+                ''
+              ).trim();
+
+              return {
+                ...item,
+                reservaId,
+                numeroEmpleado
+              };
+            });
+
+          misSolicitudesState.all = normalizedData;
+          misSolicitudesState.filtered = normalizedData;
+          misSolicitudesState.currentPage = 1;
+          misSolicitudesState.campaigns = getUniqueCampanias(normalizedData);
+
+          syncMisSolicitudesFiltersFromInputs();
+          populateMisSolicitudesCampaignFilter(misSolicitudesState.campaigns, misSolicitudesState.filters.campania);
+
+          if (!normalizedData.length) {
+            setMisSolicitudesPlaceholder('No hay solicitudes registradas.');
+            updateMisSolicitudesPagination();
+            return;
+          }
+
+          applyMisSolicitudesFilters({ resetPage: true });
+        }
+
+        function updateMisSolicitudesFilterAppearance(field) {
+          if (!field) return;
+          field.classList.toggle('is-placeholder', !field.value);
+        }
+
+        function refreshMisSolicitudesFiltersAppearance() {
+          const { filters } = misSolicitudesUI;
+          if (!filters) return;
+
+          [
+            filters.dateStart,
+            filters.dateEnd,
+            filters.campania,
+            filters.correo,
+            filters.numeroEmpleado,
+            filters.reservaId
+          ].forEach(updateMisSolicitudesFilterAppearance);
+        }
+
+        function initializeMisSolicitudesFilters() {
+          const { filters, pagination } = misSolicitudesUI;
+          if (!filters) return;
+
+          if (filters.dateStart) {
+            filters.dateStart.addEventListener('change', handleMisSolicitudesFilterChange);
+          }
+
+          if (filters.dateEnd) {
+            filters.dateEnd.addEventListener('change', handleMisSolicitudesFilterChange);
+          }
+
+          if (filters.campania) {
+            filters.campania.addEventListener('change', handleMisSolicitudesFilterChange);
+          }
+
+          if (filters.correo) {
+            filters.correo.addEventListener('input', handleMisSolicitudesFilterChange);
+          }
+
+          if (filters.numeroEmpleado) {
+            filters.numeroEmpleado.addEventListener('input', handleMisSolicitudesFilterChange);
+          }
+
+          if (filters.reservaId) {
+            filters.reservaId.addEventListener('input', handleMisSolicitudesFilterChange);
+          }
+
+          if (filters.reset) {
+            filters.reset.addEventListener('click', resetMisSolicitudesFilters);
+          }
+
+          if (pagination && pagination.prev) {
+            pagination.prev.addEventListener('click', () => changeMisSolicitudesPage(-1));
+          }
+
+          if (pagination && pagination.next) {
+            pagination.next.addEventListener('click', () => changeMisSolicitudesPage(1));
+          }
+
+          refreshMisSolicitudesFiltersAppearance();
+        }
+
+        function setupMisSolicitudesDownload() {
+          const button = misSolicitudesUI.downloadCsvButton;
+          if (!button) return;
+
+          if (!button.dataset.originalText) {
+            button.dataset.originalText = button.textContent || 'Descargar CSV';
+          }
+
+          button.addEventListener('click', handleDownloadMisSolicitudesCsv);
+          updateDownloadButtonState();
+        }
+
+        function handleDownloadMisSolicitudesCsv() {
+          const button = misSolicitudesUI.downloadCsvButton;
+          const data = misSolicitudesState.filtered;
+
+          if (!button || !Array.isArray(data) || !data.length) {
+            return;
+          }
+
+          const originalText = button.dataset.originalText || button.textContent || 'Descargar CSV';
+          button.disabled = true;
+          button.textContent = 'Preparando…';
+
+          try {
+            const csvContent = buildMisSolicitudesCsv(data);
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const now = new Date();
+            const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            link.href = url;
+            link.download = `mis_solicitudes_${formattedDate}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          } catch (error) {
+            console.error('No se pudo generar el CSV de solicitudes:', error);
+            alert('No se pudo generar la descarga. Inténtalo de nuevo más tarde.');
+          } finally {
+            button.textContent = originalText;
+            updateDownloadButtonState();
+          }
+        }
+
+        function buildMisSolicitudesCsv(data) {
+          if (!Array.isArray(data)) return '';
+
+          const columns = [
+            { key: 'reservaId', label: 'ID reserva' },
+            { key: 'campania', label: 'Campaña' },
+            { key: 'correo', label: 'Correo' },
+            { key: 'numeroEmpleado', label: 'Nº empleado' },
+            { key: 'fecha', label: 'Fecha' },
+            { key: 'franja', label: 'Franja' },
+            { key: 'horas', label: 'Horas' },
+            { key: 'tipo', label: 'Tipo' },
+            { key: 'estadoSolicitud', label: 'Estado solicitud' }
+          ];
+
+          const header = columns.map(column => formatCsvValue(column.label)).join(',');
+          const rows = data.map(item => columns.map(column => {
+            if (!item || typeof item !== 'object') return '';
+
+            if (column.key === 'reservaId') {
+              const preferred = item.reservaId || item.idReserva || item.reservaID || item.id || '';
+              return formatCsvValue(preferred);
+            }
+
+            const value = Object.prototype.hasOwnProperty.call(item, column.key)
+              ? item[column.key]
+              : '';
+            return formatCsvValue(value);
+          }).join(','));
+
+          const content = [header, ...rows];
+          return '\uFEFF' + content.join('\r\n');
+        }
+
+        function formatCsvValue(value) {
+          if (value === null || value === undefined) return '';
+          const stringValue = String(value).replace(/\r?\n|\r/g, ' ').trim();
+          if (!stringValue) return '';
+          const needsQuotes = /[",;\n]/.test(stringValue);
+          const sanitized = stringValue.replace(/"/g, '""');
+          return needsQuotes ? `"${sanitized}"` : sanitized;
+        }
+
+        function handleMisSolicitudesFilterChange() {
+          syncMisSolicitudesFiltersFromInputs();
+          refreshMisSolicitudesFiltersAppearance();
+          applyMisSolicitudesFilters({ resetPage: true });
+        }
+
+        function resetMisSolicitudesFilters() {
+          const { filters } = misSolicitudesUI;
+          if (!filters) return;
+
+          if (filters.dateStart) filters.dateStart.value = '';
+          if (filters.dateEnd) filters.dateEnd.value = '';
+          if (filters.campania) filters.campania.value = '';
+          if (filters.correo) filters.correo.value = '';
+          if (filters.numeroEmpleado) filters.numeroEmpleado.value = '';
+          if (filters.reservaId) filters.reservaId.value = '';
+
+          misSolicitudesState.filters.dateStart = '';
+          misSolicitudesState.filters.dateEnd = '';
+          misSolicitudesState.filters.campania = '';
+          misSolicitudesState.filters.correo = '';
+          misSolicitudesState.filters.numeroEmpleado = '';
+          misSolicitudesState.filters.reservaId = '';
+
+          refreshMisSolicitudesFiltersAppearance();
+          applyMisSolicitudesFilters({ resetPage: true });
+        }
+
+        function syncMisSolicitudesFiltersFromInputs() {
+          const { filters } = misSolicitudesUI;
+          if (!filters) return;
+
+          const startValue = filters.dateStart ? filters.dateStart.value : '';
+          let endValue = filters.dateEnd ? filters.dateEnd.value : '';
+
+          if (startValue && endValue && startValue > endValue) {
+            endValue = startValue;
+            if (filters.dateEnd) {
+              filters.dateEnd.value = startValue;
+            }
+          }
+
+          misSolicitudesState.filters.dateStart = startValue || '';
+          misSolicitudesState.filters.dateEnd = endValue || '';
+          misSolicitudesState.filters.campania = filters.campania ? filters.campania.value : '';
+
+          if (filters.correo) {
+            const rawCorreo = String(filters.correo.value || '');
+            const trimmedCorreo = rawCorreo.trim();
+            filters.correo.value = trimmedCorreo;
+            misSolicitudesState.filters.correo = trimmedCorreo.toLowerCase();
+          } else {
+            misSolicitudesState.filters.correo = '';
+          }
+
+          if (filters.numeroEmpleado) {
+            const formattedEmpleado = String(filters.numeroEmpleado.value || '').trim().toUpperCase();
+            filters.numeroEmpleado.value = formattedEmpleado;
+            misSolicitudesState.filters.numeroEmpleado = formattedEmpleado;
+          } else {
+            misSolicitudesState.filters.numeroEmpleado = '';
+          }
+
+          if (filters.reservaId) {
+            const formatted = String(filters.reservaId.value || '').toUpperCase();
+            filters.reservaId.value = formatted;
+            misSolicitudesState.filters.reservaId = formatted;
+          } else {
+            misSolicitudesState.filters.reservaId = '';
+          }
+        }
+
+        function populateMisSolicitudesCampaignFilter(campaigns, currentValue) {
+          const select = misSolicitudesUI.filters ? misSolicitudesUI.filters.campania : null;
+          if (!select) return;
+
+          const normalizedCurrent = String(currentValue || '').trim().toLowerCase();
+          const fragment = document.createDocumentFragment();
+
+          const optionAll = document.createElement('option');
+          optionAll.value = '';
+          optionAll.textContent = 'Todas';
+          fragment.appendChild(optionAll);
+
+          campaigns.forEach(campania => {
+            const option = document.createElement('option');
+            option.value = campania;
+            option.textContent = campania;
+            fragment.appendChild(option);
+          });
+
+          select.innerHTML = '';
+          select.appendChild(fragment);
+
+          const match = campaigns.find(item => item.toLowerCase() === normalizedCurrent);
+          select.value = match || '';
+          misSolicitudesState.filters.campania = select.value;
+        }
+
+        function getUniqueCampanias(data) {
+          const unique = new Set();
+          data.forEach(item => {
+            const value = String(item && item.campania ? item.campania : '').trim();
+            if (value) unique.add(value);
+          });
+          return Array.from(unique).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+        }
+
+        function applyMisSolicitudesFilters({ resetPage = true } = {}) {
+          const { all, filters } = misSolicitudesState;
+
+          if (!Array.isArray(all) || !all.length) {
+            misSolicitudesState.filtered = [];
+            misSolicitudesState.currentPage = 1;
+            renderMisSolicitudesPage();
+            updateMisSolicitudesPagination();
+            return;
+          }
+
+          const startTimestamp = parseInputDateToTimestamp(filters.dateStart);
+          const endTimestamp = parseInputDateToTimestamp(filters.dateEnd);
+          const hasRange = startTimestamp != null && endTimestamp != null;
+          const campaniaFilter = String(filters.campania || '').trim().toLowerCase();
+          const correoFilter = String(filters.correo || '').trim().toLowerCase();
+          const empleadoFilter = String(filters.numeroEmpleado || '').trim().toUpperCase();
+          const idFilter = String(filters.reservaId || '').trim().toUpperCase();
+
+          misSolicitudesState.filtered = all.filter(item => {
+            const fechaTimestamp = parseDisplayDateToTimestamp(item.fecha);
+
+            let matchesDate = true;
+            if (hasRange) {
+              matchesDate = fechaTimestamp != null && fechaTimestamp >= startTimestamp && fechaTimestamp <= endTimestamp;
+            } else if (startTimestamp != null) {
+              matchesDate = fechaTimestamp != null && isSameDayTimestamp(fechaTimestamp, startTimestamp);
+            } else if (endTimestamp != null) {
+              matchesDate = fechaTimestamp != null && isSameDayTimestamp(fechaTimestamp, endTimestamp);
+            }
+
+            if (!matchesDate) return false;
+
+            const campaniaValue = String(item.campania || '').trim().toLowerCase();
+            if (campaniaFilter && campaniaValue !== campaniaFilter) {
+              return false;
+            }
+
+            const correoValue = String(item.correo || '').trim().toLowerCase();
+            if (correoFilter && !correoValue.includes(correoFilter)) {
+              return false;
+            }
+
+            if (empleadoFilter) {
+              const empleadoValue = String(item.numeroEmpleado || '').toUpperCase();
+              if (!empleadoValue.includes(empleadoFilter)) {
+                return false;
+              }
+            }
+
+            if (idFilter) {
+              const idValue = String(item.reservaId || '').toUpperCase();
+              if (!idValue.includes(idFilter)) {
+                return false;
+              }
+            }
+
+            return true;
+          });
+
+          if (resetPage) {
+            misSolicitudesState.currentPage = 1;
+          } else {
+            const totalPages = Math.max(1, Math.ceil(misSolicitudesState.filtered.length / misSolicitudesState.pageSize));
+            misSolicitudesState.currentPage = Math.min(misSolicitudesState.currentPage, totalPages);
+          }
+
+          renderMisSolicitudesPage();
+          updateMisSolicitudesPagination();
+        }
+
+        function renderMisSolicitudesPage() {
+          const tbody = misSolicitudesUI.tbody;
+          if (!tbody) return;
+
+          tbody.innerHTML = '';
+
+          const { filtered, currentPage, pageSize, all } = misSolicitudesState;
+          if (!filtered.length) {
+            const message = all.length
+              ? 'No hay solicitudes que coincidan con los filtros aplicados.'
+              : 'No hay solicitudes registradas.';
+            setMisSolicitudesPlaceholder(message);
+            updateDeleteButtonState();
+            updateDownloadButtonState();
+            return;
+          }
+
+          const startIndex = (currentPage - 1) * pageSize;
+          const pageItems = filtered.slice(startIndex, startIndex + pageSize);
+
+          if (!pageItems.length) {
+            misSolicitudesState.currentPage = 1;
+            renderMisSolicitudesPage();
+            return;
+          }
+
+          const columns = [
+            { key: 'reservaId', className: 'table-cell-id' },
+            { key: 'campania' },
+            { key: 'correo' },
+            { key: 'numeroEmpleado' },
+            { key: 'fecha', className: 'table-cell-date' },
+            { key: 'franja' },
+            { key: 'horas' },
+            { key: 'tipo', className: 'table-cell-tag' },
+            { key: 'estadoSolicitud', className: 'table-cell-tag' }
+          ];
+
+          pageItems.forEach(solicitud => {
+            const row = document.createElement('tr');
+
+            columns.forEach(column => {
+              const cell = document.createElement('td');
+              let rawValue;
+
+              if (column.key === 'reservaId') {
+                rawValue = solicitud && (
+                  solicitud.reservaId ||
+                  solicitud.idReserva ||
+                  solicitud.reservaID ||
+                  solicitud.id ||
+                  ''
+                );
+              } else if (solicitud && Object.prototype.hasOwnProperty.call(solicitud, column.key)) {
+                rawValue = solicitud[column.key];
+              } else {
+                rawValue = '';
+              }
+
+              const value = (() => {
+                if (rawValue === null || rawValue === undefined) return '—';
+                const text = String(rawValue).trim();
+                return text ? text : '—';
+              })();
+
+              cell.textContent = value;
+              if (column.className) {
+                cell.classList.add(column.className);
+              }
+              row.appendChild(cell);
+            });
+
+            const actionCell = document.createElement('td');
+            const estadoRaw = solicitud && solicitud.estadoSolicitud != null ? String(solicitud.estadoSolicitud) : '';
+            const estado = estadoRaw.trim();
+            const estadoNormalized = estado.toLowerCase();
+            const tipoRaw = solicitud && solicitud.tipo != null ? String(solicitud.tipo) : '';
+            const tipoNormalized = tipoRaw.trim().toLowerCase();
+            const keyValue = solicitud && solicitud.key != null ? String(solicitud.key).trim() : '';
+            const reservaIdValue = solicitud && solicitud.reservaId != null ? String(solicitud.reservaId).trim() : '';
+            const identifierValue = keyValue || reservaIdValue;
+            const canTramitar = accessContext.isAdmin || accessContext.isGestor;
+
+            let hasAction = false;
+            const actionsWrapper = document.createElement('div');
+            actionsWrapper.className = 'table-actions';
+
+            if (accessContext.isAdmin && keyValue) {
+              const editButton = createActionButton('Editar', 'table-action-button table-action-button--secondary');
+              editButton.addEventListener('click', () => handleEditarSolicitud(solicitud));
+              actionsWrapper.appendChild(editButton);
+              hasAction = true;
+            }
+
+            if (tipoNormalized === 'cobrar') {
+              const tramitarButton = createActionButton('Tramitar');
+              const hasIdentifier = Boolean(identifierValue);
+              const alreadyTramitada =
+                estadoNormalized === 'aceptada complementaria' ||
+                estadoNormalized === 'denegada complementaria' ||
+                tipoNormalized === 'aceptada complementaria' ||
+                tipoNormalized === 'denegada complementaria';
+
+              if (!hasIdentifier) {
+                tramitarButton.disabled = true;
+                tramitarButton.title = 'Falta el identificador de la solicitud.';
+              } else if (!canTramitar) {
+                tramitarButton.disabled = true;
+                tramitarButton.title = 'Solo administradores o gestores pueden tramitar solicitudes.';
+              } else if (alreadyTramitada) {
+                tramitarButton.disabled = true;
+                tramitarButton.title = 'Esta solicitud ya fue tramitada.';
+              } else {
+                tramitarButton.addEventListener('click', () => {
+                  openTramitarSolicitudModal(solicitud, { key: keyValue, reservaId: reservaIdValue });
+                });
+              }
+
+              actionsWrapper.appendChild(tramitarButton);
+              hasAction = true;
+            }
+
+            if (hasAction) {
+              actionCell.appendChild(actionsWrapper);
+            } else if (estadoNormalized === 'vencido') {
+              actionCell.textContent = 'No disponible';
+              actionCell.title = 'No puedes gestionar solicitudes vencidas.';
+            } else {
+              actionCell.textContent = '—';
+            }
+
+            row.appendChild(actionCell);
+
+            const checkboxCell = document.createElement('td');
+            checkboxCell.className = 'table-cell-checkbox';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'solicitud-checkbox';
+            if (identifierValue) {
+              checkbox.dataset.key = identifierValue;
+            }
+            if (reservaIdValue) {
+              checkbox.dataset.reservaId = reservaIdValue;
+            }
+            const disabledByIdentifier = !identifierValue;
+            const disabledByEstado = !accessContext.isAdmin && (estadoNormalized !== 'vigente' && estadoNormalized !== '');
+            checkbox.disabled = disabledByIdentifier || disabledByEstado;
+            if (disabledByIdentifier) {
+              checkbox.title = 'No se puede eliminar esta solicitud porque falta un identificador válido.';
+            } else if (disabledByEstado) {
+              checkbox.title = 'Solo puedes eliminar solicitudes vigentes.';
+            }
+            checkboxCell.appendChild(checkbox);
+            row.appendChild(checkboxCell);
+
+            tbody.appendChild(row);
+          });
+
+          updateDeleteButtonState();
+          updateDownloadButtonState();
+        }
+
+        function normalizeIdentifierValue(value) {
+          return value == null ? '' : String(value).trim();
+        }
+
+        function openTramitarSolicitudModal(solicitud, identifiers = {}) {
+          if (!tramitarModal.overlay || !tramitarModal.buttons) return;
+
+          tramitarModalState.solicitud = solicitud || null;
+          tramitarModalState.identifiers = {
+            key: normalizeIdentifierValue(
+              (identifiers && identifiers.key) ||
+              (solicitud && (solicitud.key || solicitud.Key || solicitud.KEY))
+            ),
+            reservaId: normalizeIdentifierValue(
+              (identifiers && identifiers.reservaId) ||
+              (solicitud && (solicitud.reservaId || solicitud.idReserva || solicitud.reservaID))
+            )
+          };
+          tramitarModalState.processing = false;
+          tramitarModalState.trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+          if (tramitarModal.message) {
+            const parts = [];
+            const { reservaId } = tramitarModalState.identifiers;
+            if (reservaId) {
+              parts.push(`ID ${reservaId}`);
+            }
+            const campania = solicitud && solicitud.campania ? String(solicitud.campania).trim() : '';
+            if (campania) {
+              parts.push(campania);
+            }
+            const fecha = solicitud && solicitud.fecha ? String(solicitud.fecha).trim() : '';
+            if (fecha) {
+              parts.push(fecha);
+            }
+            tramitarModal.message.textContent = parts.length
+              ? `Selecciona una acción para la solicitud de cobro (${parts.join(' · ')}).`
+              : 'Selecciona una acción para esta solicitud de cobro.';
+          }
+
+          tramitarModal.overlay.hidden = false;
+          tramitarModal.overlay.style.display = 'flex';
+          tramitarModal.overlay.scrollTop = 0;
+
+          setTramitarProcessing(false);
+
+          const { accept, deny, cancel } = tramitarModal.buttons;
+          const focusTarget = accept && !accept.disabled
+            ? accept
+            : deny && !deny.disabled
+              ? deny
+              : cancel;
+          if (focusTarget) {
+            requestAnimationFrame(() => {
+              focusTarget.focus();
+            });
+          }
+        }
+
+        function closeTramitarSolicitudModal() {
+          if (!tramitarModal.overlay) return;
+          tramitarModal.overlay.hidden = true;
+          tramitarModal.overlay.style.display = 'none';
+
+          const trigger = tramitarModalState.trigger;
+          tramitarModalState.solicitud = null;
+          tramitarModalState.identifiers = { key: '', reservaId: '' };
+          tramitarModalState.processing = false;
+          tramitarModalState.trigger = null;
+
+          if (trigger && typeof trigger.focus === 'function') {
+            requestAnimationFrame(() => trigger.focus());
+          }
+        }
+
+        function setTramitarProcessing(isProcessing) {
+          tramitarModalState.processing = Boolean(isProcessing);
+          const buttons = tramitarModal.buttons || {};
+          if (buttons.accept) buttons.accept.disabled = isProcessing;
+          if (buttons.deny) buttons.deny.disabled = isProcessing;
+          if (buttons.cancel) buttons.cancel.disabled = isProcessing;
+        }
+
+        function handleTramitarSolicitud(action) {
+          const normalizedAction = typeof action === 'string' ? action.trim().toLowerCase() : '';
+          if (normalizedAction !== 'aceptar' && normalizedAction !== 'denegar') return;
+          if (!tramitarModalState.solicitud || tramitarModalState.processing) return;
+
+          const key = normalizeIdentifierValue(
+            tramitarModalState.identifiers.key ||
+            (tramitarModalState.solicitud && (tramitarModalState.solicitud.key || tramitarModalState.solicitud.Key || tramitarModalState.solicitud.KEY))
+          );
+          const reservaId = normalizeIdentifierValue(
+            tramitarModalState.identifiers.reservaId ||
+            (tramitarModalState.solicitud &&
+              (tramitarModalState.solicitud.reservaId ||
+               tramitarModalState.solicitud.idReserva ||
+               tramitarModalState.solicitud.reservaID))
+          );
+
+          if (!key && !reservaId) {
+            alert('No se pudo identificar la solicitud para tramitarla.');
+            return;
+          }
+
+          setTramitarProcessing(true);
+
+          const payload = {
+            accion: normalizedAction,
+            key: key || undefined,
+            reservaId: reservaId || undefined
+          };
+
+          const onSuccess = (response) => {
+            const tipoValue = normalizeIdentifierValue(response && response.tipo)
+              || (normalizedAction === 'aceptar' ? 'Aceptada complementaria' : 'Denegada complementaria');
+            const validacion = normalizeIdentifierValue(response && response.validacion)
+              || (normalizedAction === 'aceptar' ? 'OK' : 'KO');
+            const resolvedIdentifiers = {
+              key: normalizeIdentifierValue(response && response.key) || key,
+              reservaId: normalizeIdentifierValue(response && response.reservaId) || reservaId
+            };
+
+            setTramitarProcessing(false);
+            closeTramitarSolicitudModal();
+            updateSolicitudAfterTramitar(resolvedIdentifiers, { tipo: tipoValue, validacion });
+            renderMisSolicitudesPage();
+            updateMisSolicitudesPagination();
+
+            const successMessage = normalizedAction === 'aceptar'
+              ? 'La solicitud se ha aceptado correctamente.'
+              : 'La solicitud se ha denegado correctamente.';
+            const successPromise = typeof showSuccess === 'function'
+              ? showSuccess(successMessage, 'Solicitud tramitada')
+              : Promise.resolve(alert(successMessage));
+
+            Promise.resolve(successPromise).finally(() => {
+              loadMisSolicitudes();
+            });
+          };
+
+          const onFailure = (error) => {
+            console.error('No se pudo tramitar la solicitud:', error);
+            setTramitarProcessing(false);
+            const message = error && error.message
+              ? error.message
+              : 'No se pudo tramitar la solicitud. Inténtalo de nuevo.';
+            alert(message);
+          };
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(onSuccess)
+              .withFailureHandler(onFailure)
+              .tramitarSolicitudCobrar(payload);
+          } else {
+            setTimeout(() => onFailure(new Error('Runtime local sin Google Apps Script.')), 0);
+          }
+        }
+
+        function updateSolicitudAfterTramitar(identifiers, updates) {
+          if (!updates || typeof updates !== 'object') return;
+          const key = normalizeIdentifierValue(identifiers && identifiers.key);
+          const reservaId = normalizeIdentifierValue(identifiers && identifiers.reservaId);
+          if (!key && !reservaId) return;
+
+          const applyUpdates = (item) => {
+            if (!item || typeof item !== 'object') return;
+            if (Object.prototype.hasOwnProperty.call(updates, 'estadoSolicitud')) {
+              item.estadoSolicitud = updates.estadoSolicitud;
+            }
+            if (Object.prototype.hasOwnProperty.call(updates, 'tipo')) {
+              item.tipo = updates.tipo;
+            }
+            if (Object.prototype.hasOwnProperty.call(updates, 'validacion')) {
+              item.validacion = updates.validacion;
+            }
+          };
+
+          const matches = (item) => {
+            if (!item || typeof item !== 'object') return false;
+            const itemKey = normalizeIdentifierValue(item.key || item.Key || item.KEY);
+            if (key && itemKey) {
+              return itemKey === key;
+            }
+            const itemReservaId = normalizeIdentifierValue(item.reservaId || item.idReserva || item.reservaID);
+            if (reservaId && itemReservaId) {
+              return itemReservaId === reservaId;
+            }
+            return false;
+          };
+
+          misSolicitudesState.all.forEach(item => {
+            if (matches(item)) applyUpdates(item);
+          });
+          misSolicitudesState.filtered.forEach(item => {
+            if (matches(item)) applyUpdates(item);
+          });
+        }
+
+        function updateMisSolicitudesPagination() {
+          const pagination = misSolicitudesUI.pagination;
+          if (!pagination || !pagination.container || !pagination.info) return;
+
+          const totalItems = misSolicitudesState.filtered.length;
+          const totalPages = totalItems ? Math.ceil(totalItems / misSolicitudesState.pageSize) : 0;
+
+          if (!totalPages) {
+            pagination.container.hidden = true;
+            pagination.info.textContent = 'Página 0 de 0';
+            if (pagination.prev) pagination.prev.disabled = true;
+            if (pagination.next) pagination.next.disabled = true;
+            return;
+          }
+
+          pagination.container.hidden = totalPages <= 1;
+          pagination.info.textContent = `Página ${misSolicitudesState.currentPage} de ${totalPages}`;
+
+          if (pagination.prev) {
+            pagination.prev.disabled = misSolicitudesState.currentPage <= 1;
+          }
+
+          if (pagination.next) {
+            pagination.next.disabled = misSolicitudesState.currentPage >= totalPages;
+          }
+        }
+
+        function changeMisSolicitudesPage(offset) {
+          const targetPage = misSolicitudesState.currentPage + offset;
+          goToMisSolicitudesPage(targetPage);
+        }
+
+        function goToMisSolicitudesPage(page) {
+          const totalPages = misSolicitudesState.filtered.length
+            ? Math.ceil(misSolicitudesState.filtered.length / misSolicitudesState.pageSize)
+            : 0;
+
+          if (!totalPages) {
+            misSolicitudesState.currentPage = 1;
+            renderMisSolicitudesPage();
+            updateMisSolicitudesPagination();
+            return;
+          }
+
+          const normalizedPage = Math.min(Math.max(page, 1), totalPages);
+          misSolicitudesState.currentPage = normalizedPage;
+          renderMisSolicitudesPage();
+          updateMisSolicitudesPagination();
+        }
+
+        function parseDisplayDateToTimestamp(value) {
+          if (!value) return null;
+          const parts = String(value).split('/');
+          let date;
+          if (parts.length === 3) {
+            const [dd, mm, yyyy] = parts.map(part => Number(part));
+            if (!dd || !mm || !yyyy) return null;
+            date = new Date(yyyy, mm - 1, dd);
+          } else {
+            const parsed = new Date(value);
+            if (Number.isNaN(parsed.getTime())) return null;
+            date = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+          }
+          return Number.isNaN(date.getTime()) ? null : date.getTime();
+        }
+
+        function parseInputDateToTimestamp(value) {
+          if (!value) return null;
+          const date = new Date(`${value}T00:00:00`);
+          return Number.isNaN(date.getTime()) ? null : date.getTime();
+        }
+
+        function isSameDayTimestamp(a, b) {
+          if (a == null || b == null) return false;
+          const dateA = new Date(a);
+          const dateB = new Date(b);
+          return (
+            dateA.getFullYear() === dateB.getFullYear() &&
+            dateA.getMonth() === dateB.getMonth() &&
+            dateA.getDate() === dateB.getDate()
+          );
+        }
+
+        function createActionButton(label, className = 'table-action-button') {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = label;
+          button.className = className;
+          return button;
+        }
+
+        function handleEditarSolicitud(solicitud) {
+          if (!solicitud) return;
+          openEditSolicitudModal(solicitud);
+        }
+
+        function openEditSolicitudModal(solicitud) {
+          if (!editModal.overlay || !editModal.form) return;
+          editModalState.solicitud = solicitud;
+          editModalState.submitting = false;
+
+          const prepared = prepareSolicitudForEdit(solicitud);
+          populateEditSolicitudForm(prepared, solicitud);
+          showEditModalError('');
+
+          if (editModal.buttons.delete) {
+            const estado = String((solicitud && solicitud.estadoSolicitud) || '').trim().toLowerCase();
+            const canDelete = accessContext.isAdmin && (estado === 'vigente' || estado === 'vencido');
+            editModal.buttons.delete.hidden = !canDelete;
+            editModal.buttons.delete.disabled = false;
+            if (canDelete) {
+              editModal.buttons.delete.setAttribute('aria-label', 'Eliminar solicitud');
+            }
+          }
+
+          editModal.overlay.hidden = false;
+          editModal.overlay.style.display = 'flex';
+          if (editModal.fields.campania) {
+            editModal.fields.campania.focus();
+          }
+        }
+
+        function closeEditSolicitudModal() {
+          if (!editModal.overlay || !editModal.form) return;
+          editModal.form.reset();
+          setEditModalSubmitting(false);
+          showEditModalError('');
+          if (editModal.buttons.delete) {
+            editModal.buttons.delete.hidden = true;
+            editModal.buttons.delete.disabled = false;
+            editModal.buttons.delete.setAttribute('aria-label', 'Eliminar solicitud');
+          }
+          editModal.overlay.hidden = true;
+          editModal.overlay.style.display = 'none';
+          editModalState.solicitud = null;
+        }
+
+        function populateEditSolicitudForm(values, solicitud) {
+          if (!editModal.form || !values) return;
+          const { fields } = editModal;
+
+          if (fields.key) fields.key.value = solicitud && solicitud.key ? String(solicitud.key).trim() : '';
+          if (fields.tipo) fields.tipo.value = values.tipo || (solicitud && solicitud.tipo) || '';
+          if (fields.correo) fields.correo.value = values.correo || (solicitud && solicitud.correo) || '';
+          if (fields.campania) fields.campania.value = values.campania || '';
+          if (fields.fecha) fields.fecha.value = values.fecha || '';
+          if (fields.horaInicio) fields.horaInicio.value = values.horaInicio || '';
+          if (fields.horas) fields.horas.value = values.horas || '';
+        }
+
+        function prepareSolicitudForEdit(solicitud) {
+          const tipo = solicitud && solicitud.tipo ? String(solicitud.tipo).trim() : '';
+          const correo = solicitud && solicitud.correo ? String(solicitud.correo).trim() : '';
+          const campania = solicitud && solicitud.campania ? String(solicitud.campania).trim() : '';
+          const fecha = formatFechaToInput(solicitud && solicitud.fecha ? String(solicitud.fecha) : '');
+          const horaInicio = extractHoraInicio(solicitud);
+          const horas = formatHorasValue(solicitud, horaInicio);
+
+          return {
+            tipo,
+            correo,
+            campania,
+            fecha,
+            horaInicio,
+            horas
+          };
+        }
+
+        function formatFechaToInput(fechaStr) {
+          const value = String(fechaStr || '').trim();
+          if (!value) return '';
+          const parts = value.split('/');
+          if (parts.length === 3) {
+            const [dd, mm, yyyy] = parts;
+            const day = dd.padStart(2, '0');
+            const month = mm.padStart(2, '0');
+            const year = yyyy.length === 2 ? `20${yyyy}` : yyyy.padStart(4, '0');
+            return `${year}-${month}-${day}`;
+          }
+          const parsed = new Date(value);
+          if (!Number.isNaN(parsed.getTime())) {
+            const day = String(parsed.getDate()).padStart(2, '0');
+            const month = String(parsed.getMonth() + 1).padStart(2, '0');
+            const year = String(parsed.getFullYear());
+            return `${year}-${month}-${day}`;
+          }
+          return '';
+        }
+
+        function extractHoraInicio(solicitud) {
+          const franja = solicitud && solicitud.franja ? String(solicitud.franja) : '';
+          const cleaned = franja.replace(/\s+/g, '');
+          const parts = cleaned.split('-');
+          if (parts.length === 2 && parts[0].includes(':')) {
+            return normalizeTime(parts[0]);
+          }
+
+          const horario = solicitud && solicitud.horario ? String(solicitud.horario) : '';
+          const horarioParts = horario.replace(/\s+/g, '').split('-');
+          if (horarioParts.length === 2 && horarioParts[0].includes(':')) {
+            return normalizeTime(horarioParts[0]);
+          }
+
+          return '';
+        }
+
+        function normalizeTime(timeStr) {
+          const match = String(timeStr || '').match(/^(\d{1,2}):(\d{2})$/);
+          if (!match) return '';
+          const hours = String(match[1]).padStart(2, '0');
+          const minutes = match[2];
+          return `${hours}:${minutes}`;
+        }
+
+        function formatHorasValue(solicitud, horaInicio) {
+          const raw = solicitud && solicitud.horas != null ? String(solicitud.horas) : '';
+          const parsed = parseFloat(raw.replace(',', '.'));
+          if (!Number.isNaN(parsed) && parsed > 0) {
+            return parsed;
+          }
+
+          const franja = solicitud && solicitud.franja ? String(solicitud.franja) : '';
+          const duration = computeDurationFromFranja(franja);
+          if (duration > 0) {
+            return duration;
+          }
+
+          if (horaInicio) {
+            return 1;
+          }
+          return '';
+        }
+
+        function computeDurationFromFranja(franja) {
+          const value = String(franja || '').replace(/\s+/g, '');
+          const parts = value.split('-');
+          if (parts.length !== 2) return 0;
+          const startMinutes = parseTimeToMinutes(parts[0]);
+          const endMinutes = parseTimeToMinutes(parts[1]);
+          if (startMinutes == null || endMinutes == null || endMinutes <= startMinutes) {
+            return 0;
+          }
+          return (endMinutes - startMinutes) / 60;
+        }
+
+        function parseTimeToMinutes(value) {
+          const match = String(value || '').match(/^(\d{1,2}):(\d{2})$/);
+          if (!match) return null;
+          const hours = Number(match[1]);
+          const minutes = Number(match[2]);
+          if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+          return hours * 60 + minutes;
+        }
+
+        function buildFranjaFromValues(startTime, horas) {
+          const startMinutes = parseTimeToMinutes(startTime);
+          const totalMinutes = Math.round(Number(horas) * 60);
+          if (startMinutes == null || !Number.isFinite(totalMinutes) || totalMinutes <= 0) {
+            return null;
+          }
+          const endMinutes = startMinutes + totalMinutes;
+          if (endMinutes > 24 * 60) {
+            return null;
+          }
+          return `${formatMinutesAsTime(startMinutes)}-${formatMinutesAsTime(endMinutes)}`;
+        }
+
+        function formatMinutesAsTime(totalMinutes) {
+          const hours = Math.floor(totalMinutes / 60);
+          const minutes = totalMinutes % 60;
+          return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        }
+
+        function showEditModalError(message) {
+          if (!editModal.error) return;
+          if (message) {
+            editModal.error.textContent = message;
+            editModal.error.hidden = false;
+          } else {
+            editModal.error.textContent = '';
+            editModal.error.hidden = true;
+          }
+        }
+
+        function setEditModalSubmitting(isSubmitting) {
+          editModalState.submitting = Boolean(isSubmitting);
+          if (editModal.buttons.save) {
+            editModal.buttons.save.disabled = editModalState.submitting;
+          }
+        }
+
+        function submitEditSolicitud() {
+          if (!editModal.form || editModalState.submitting) return;
+          const { fields } = editModal;
+          const campania = fields.campania ? fields.campania.value.trim() : '';
+          const fecha = fields.fecha ? fields.fecha.value : '';
+          const horaInicio = fields.horaInicio ? fields.horaInicio.value : '';
+          const horasRaw = fields.horas ? fields.horas.value : '';
+          const tipo = fields.tipo ? fields.tipo.value.trim() : '';
+          const correo = fields.correo ? fields.correo.value.trim() : '';
+
+          if (!campania || !fecha || !horaInicio || !horasRaw) {
+            showEditModalError('Completa todos los campos obligatorios.');
+            return;
+          }
+
+          const horasValue = parseFloat(String(horasRaw).replace(',', '.'));
+          if (!Number.isFinite(horasValue) || horasValue <= 0) {
+            showEditModalError('Introduce un número de horas válido.');
+            return;
+          }
+
+          const startDate = new Date(`${fecha}T${horaInicio}:00`);
+          if (Number.isNaN(startDate.getTime())) {
+            showEditModalError('La fecha u hora seleccionada no es válida.');
+            return;
+          }
+
+          const franja = buildFranjaFromValues(horaInicio, horasValue);
+          if (!franja) {
+            showEditModalError('No se pudo calcular la franja horaria con los datos indicados.');
+            return;
+          }
+
+          const formattedDate = `${String(startDate.getDate()).padStart(2, '0')}/${String(startDate.getMonth() + 1).padStart(2, '0')}/${startDate.getFullYear()}`;
+          const currentSolicitud = editModalState.solicitud || {};
+          const key = currentSolicitud.key || (fields.key ? fields.key.value : '');
+          if (!key) {
+            showEditModalError('No se pudo identificar la solicitud original.');
+            return;
+          }
+
+          const payload = {
+            key,
+            campania,
+            tipo,
+            correo,
+            fecha,
+            fechaDisplay: formattedDate,
+            horaInicio,
+            horas: horasValue,
+            franja,
+            estadoSolicitud: currentSolicitud.estadoSolicitud || ''
+          };
+
+          showEditModalError('');
+          setEditModalSubmitting(true);
+
+          const finalize = () => {
+            setEditModalSubmitting(false);
+          };
+
+          const handleSuccess = (response) => {
+            finalize();
+            closeEditSolicitudModal();
+            const showSuccessMessage = typeof showSuccess === 'function'
+              ? showSuccess('Los cambios se guardaron correctamente.', 'Solicitud actualizada')
+              : Promise.resolve(alert('Solicitud actualizada correctamente.'));
+
+            Promise.resolve(showSuccessMessage).finally(() => {
+              loadMisSolicitudes();
+            });
+          };
+
+          const handleFailure = (error) => {
+            console.error('No se pudo actualizar la solicitud:', error);
+            finalize();
+            const message = error && error.message ? error.message : 'No se pudo actualizar la solicitud. Inténtalo de nuevo.';
+            showEditModalError(message);
+          };
+
+          const serverPayload = {
+            key: payload.key,
+            campania: payload.campania,
+            tipo: payload.tipo,
+            correo: payload.correo,
+            fechaISO: startDate.toISOString(),
+            fechaDisplay: payload.fechaDisplay,
+            horaInicio: payload.horaInicio,
+            horas: payload.horas,
+            franja: payload.franja,
+            estadoSolicitud: payload.estadoSolicitud
+          };
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(handleSuccess)
+              .withFailureHandler(handleFailure)
+              .actualizarSolicitud(serverPayload);
+          } else {
+            setTimeout(() => {
+              handleFailure(new Error('Runtime local sin Google Apps Script.'));
+            }, 0);
+          }
+        }
+
+        function setupTramitarSolicitudModal() {
+          const overlay = tramitarModal.overlay;
+          const buttons = tramitarModal.buttons || {};
+          if (!overlay || (!buttons.accept && !buttons.deny && !buttons.cancel)) {
+            return;
+          }
+
+          const handleOverlayClick = (event) => {
+            if (event.target === overlay && !tramitarModalState.processing) {
+              closeTramitarSolicitudModal();
+            }
+          };
+
+          overlay.addEventListener('click', handleOverlayClick);
+
+          if (buttons.cancel) {
+            buttons.cancel.addEventListener('click', (event) => {
+              event.preventDefault();
+              if (tramitarModalState.processing) return;
+              closeTramitarSolicitudModal();
+            });
+          }
+
+          if (buttons.accept) {
+            buttons.accept.addEventListener('click', () => handleTramitarSolicitud('aceptar'));
+          }
+
+          if (buttons.deny) {
+            buttons.deny.addEventListener('click', () => handleTramitarSolicitud('denegar'));
+          }
+
+          document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && overlay && !overlay.hidden && !tramitarModalState.processing) {
+              event.preventDefault();
+              closeTramitarSolicitudModal();
+            }
+          });
+        }
+
+        function setupEditSolicitudModal() {
+          if (!editModal.overlay || !editModal.form) return;
+
+          const onCancel = (event) => {
+            event.preventDefault();
+            closeEditSolicitudModal();
+          };
+
+          editModal.form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            submitEditSolicitud();
+          });
+
+          if (editModal.buttons.cancel) {
+            editModal.buttons.cancel.addEventListener('click', onCancel);
+          }
+
+          if (editModal.buttons.close) {
+            editModal.buttons.close.addEventListener('click', onCancel);
+          }
+
+          if (editModal.buttons.delete) {
+            editModal.buttons.delete.addEventListener('click', handleEliminarSolicitudDesdeModal);
+          }
+
+          editModal.overlay.addEventListener('click', event => {
+            if (event.target === editModal.overlay) {
+              closeEditSolicitudModal();
+            }
+          });
+
+          document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && editModal.overlay && !editModal.overlay.hidden) {
+              closeEditSolicitudModal();
+            }
+          });
+        }
+
+        function buildDeleteConfirmMessage(solicitud) {
+          if (!solicitud || typeof solicitud !== 'object') {
+            return '¿Seguro que quieres eliminar esta solicitud? Esta acción no se puede deshacer.';
+          }
+
+          const fragments = [];
+          const campania = solicitud.campania || solicitud.campaña || '';
+          const fecha = solicitud.fechaDisplay || solicitud.fecha || solicitud.fechaSolicitud || '';
+          const franja = solicitud.franja || solicitud.horario || '';
+
+          if (campania) {
+            fragments.push(String(campania).trim());
+          }
+          if (fecha) {
+            fragments.push(String(fecha).trim());
+          }
+          if (franja) {
+            fragments.push(String(franja).trim());
+          }
+
+          if (!fragments.length) {
+            return '¿Seguro que quieres eliminar esta solicitud? Esta acción no se puede deshacer.';
+          }
+
+          return `¿Seguro que quieres eliminar la solicitud para ${fragments.join(' · ')}? Esta acción no se puede deshacer.`;
+        }
+
+        function showDeleteSolicitudConfirm(options = {}) {
+          const overlay = deleteConfirmModal.overlay;
+          const modal = deleteConfirmModal.modal;
+          const confirmButton = deleteConfirmModal.confirm;
+          const cancelButton = deleteConfirmModal.cancel;
+
+          const resolvedMessage = options.message || '¿Seguro que quieres eliminar esta solicitud? Esta acción no se puede deshacer.';
+          const resolvedTitle = options.title || 'Eliminar solicitud';
+
+          if (deleteConfirmModal.title) {
+            deleteConfirmModal.title.textContent = resolvedTitle;
+          }
+          if (deleteConfirmModal.message) {
+            deleteConfirmModal.message.textContent = resolvedMessage;
+          }
+
+          if (!overlay || !confirmButton || !cancelButton || !modal) {
+            const fallback = confirm(resolvedMessage);
+            return Promise.resolve(!!fallback);
+          }
+
+          return new Promise(resolve => {
+            const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            let settled = false;
+
+            const getFocusableElements = () => {
+              const selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+              return Array.from(modal.querySelectorAll(selectors)).filter(el => {
+                if (!(el instanceof HTMLElement)) return false;
+                return !el.disabled && el.offsetParent !== null;
+              });
+            };
+
+            const cleanup = () => {
+              overlay.hidden = true;
+              overlay.style.display = 'none';
+              overlay.removeEventListener('click', handleOverlayClick);
+              confirmButton.removeEventListener('click', handleConfirm);
+              cancelButton.removeEventListener('click', handleCancel);
+              document.removeEventListener('keydown', handleKeydown, true);
+              if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                previouslyFocused.focus();
+              }
+            };
+
+            const settle = (value) => {
+              if (settled) return;
+              settled = true;
+              cleanup();
+              resolve(value);
+            };
+
+            const handleConfirm = () => settle(true);
+            const handleCancel = () => settle(false);
+            const handleOverlayClick = (event) => {
+              if (event.target === overlay) {
+                settle(false);
+              }
+            };
+
+            const handleKeydown = (event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                settle(false);
+                return;
+              }
+              if (event.key === 'Tab') {
+                const focusable = getFocusableElements();
+                if (!focusable.length) {
+                  event.preventDefault();
+                  return;
+                }
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey) {
+                  if (document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                  }
+                } else {
+                  if (document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                  }
+                }
+              }
+            };
+
+            overlay.hidden = false;
+            overlay.style.display = 'flex';
+            overlay.scrollTop = 0;
+
+            confirmButton.disabled = false;
+            cancelButton.disabled = false;
+
+            overlay.addEventListener('click', handleOverlayClick);
+            confirmButton.addEventListener('click', handleConfirm);
+            cancelButton.addEventListener('click', handleCancel);
+            document.addEventListener('keydown', handleKeydown, true);
+
+            requestAnimationFrame(() => {
+              confirmButton.focus();
+            });
+          });
+        }
+
+        function showDeleteSolicitudSuccess(options = {}) {
+          const overlay = deleteSuccessModal.overlay;
+          const modal = deleteSuccessModal.modal;
+          const acceptButton = deleteSuccessModal.accept;
+
+          const resolvedTitle = options.title || 'Solicitud eliminada';
+          const resolvedMessage = options.message || 'La solicitud se eliminó correctamente.';
+
+          if (deleteSuccessModal.title) {
+            deleteSuccessModal.title.textContent = resolvedTitle;
+          }
+          if (deleteSuccessModal.message) {
+            deleteSuccessModal.message.textContent = resolvedMessage;
+          }
+
+          if (!overlay || !acceptButton || !modal) {
+            alert(resolvedMessage);
+            return Promise.resolve();
+          }
+
+          return new Promise(resolve => {
+            const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            let settled = false;
+
+            const cleanup = () => {
+              overlay.hidden = true;
+              overlay.style.display = 'none';
+              overlay.removeEventListener('click', handleOverlayClick);
+              acceptButton.removeEventListener('click', handleAccept);
+              document.removeEventListener('keydown', handleKeydown, true);
+              if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                previouslyFocused.focus();
+              }
+            };
+
+            const settle = () => {
+              if (settled) return;
+              settled = true;
+              cleanup();
+              resolve();
+            };
+
+            const handleAccept = () => settle();
+            const handleOverlayClick = (event) => {
+              if (event.target === overlay) {
+                settle();
+              }
+            };
+            const handleKeydown = (event) => {
+              if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                settle();
+                return;
+              }
+              if (event.key === 'Tab') {
+                event.preventDefault();
+                acceptButton.focus();
+              }
+            };
+
+            overlay.hidden = false;
+            overlay.style.display = 'flex';
+            overlay.scrollTop = 0;
+
+            overlay.addEventListener('click', handleOverlayClick);
+            acceptButton.addEventListener('click', handleAccept);
+            document.addEventListener('keydown', handleKeydown, true);
+
+            requestAnimationFrame(() => {
+              acceptButton.focus();
+            });
+          });
+        }
+
+        async function confirmAndDeleteSolicitud(solicitud, callbacks = {}) {
+          if (!solicitud) return false;
+
+          const estado = String(solicitud.estadoSolicitud || '').trim().toLowerCase();
+
+          // 🔐 Permitir al admin eliminar cualquier reserva (incluso vencida)
+          if (!accessContext.isAdmin && estado !== 'vigente') {
+            alert('No puedes eliminar solicitudes vencidas.');
+            return false;
+          }
+
+          const keyValue = String(solicitud.key || '').trim();
+          if (!keyValue) {
+            alert('No se pudo identificar la solicitud.');
+            return false;
+          }
+
+          const confirmar = await showDeleteSolicitudConfirm({
+            title: 'Eliminar solicitud',
+            message: buildDeleteConfirmMessage(solicitud)
+          });
+          if (!confirmar) return false;
+
+          if (typeof callbacks.onStart === 'function') {
+            callbacks.onStart();
+          }
+
+          const finishSuccess = () => {
+            if (typeof callbacks.onSuccess === 'function') {
+              callbacks.onSuccess();
+            }
+            if (typeof callbacks.onFinally === 'function') {
+              callbacks.onFinally();
+            }
+          };
+
+          const finishFailure = (error) => {
+            if (typeof callbacks.onFailure === 'function') {
+              callbacks.onFailure(error);
+            }
+            if (typeof callbacks.onFinally === 'function') {
+              callbacks.onFinally();
+            }
+          };
+
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(finishSuccess)
+              .withFailureHandler(finishFailure)
+              .cancelarReserva(keyValue);
+          } else {
+            setTimeout(() => {
+              finishFailure(new Error('Runtime local sin Google Apps Script.'));
+            }, 0);
+          }
+
+          return true;
+        }
+
+        function handleEliminarSolicitud(button, solicitud) {
+          if (!button || !solicitud) return;
+
+          const originalText = button.textContent;
+
+          confirmAndDeleteSolicitud(solicitud, {
+            onStart: () => {
+              button.disabled = true;
+              button.textContent = 'Eliminando…';
+            },
+            onSuccess: () => {
+              loadMisSolicitudes();
+              showDeleteSolicitudSuccess({
+                title: 'Solicitud eliminada',
+                message: 'La solicitud se eliminó correctamente.'
+              });
+            },
+            onFailure: (error) => {
+              console.error('No se pudo eliminar la solicitud:', error);
+              alert('No se pudo eliminar la solicitud. Inténtalo de nuevo más tarde.');
+            },
+            onFinally: () => {
+              button.disabled = false;
+              button.textContent = originalText;
+            }
+          });
+        }
+
+        function handleEliminarSolicitudDesdeModal() {
+          const button = editModal.buttons && editModal.buttons.delete;
+          const solicitud = editModalState && editModalState.solicitud;
+          if (!button || !solicitud || button.hidden) return;
+
+          const originalAria = button.getAttribute('aria-label') || 'Eliminar solicitud';
+
+          confirmAndDeleteSolicitud(solicitud, {
+            onStart: () => {
+              button.disabled = true;
+              button.setAttribute('aria-label', 'Eliminando solicitud…');
+            },
+            onSuccess: () => {
+              closeEditSolicitudModal();
+              loadMisSolicitudes();
+              showDeleteSolicitudSuccess({
+                title: 'Solicitud eliminada',
+                message: 'La solicitud se eliminó correctamente.'
+              });
+            },
+            onFailure: (error) => {
+              console.error('No se pudo eliminar la solicitud:', error);
+              alert('No se pudo eliminar la solicitud. Inténtalo de nuevo más tarde.');
+            },
+            onFinally: () => {
+              button.disabled = false;
+              button.setAttribute('aria-label', originalAria);
+            }
+          });
+        }
+
+        function setMisSolicitudesPlaceholder(message) {
+          const tbody = document.getElementById('misSolicitudesBody');
+          if (!tbody) return;
+
+          tbody.innerHTML = '';
+          const row = document.createElement('tr');
+          row.className = 'table-placeholder';
+          const cell = document.createElement('td');
+          cell.colSpan = 11;
+          cell.textContent = message;
+          row.appendChild(cell);
+          tbody.appendChild(row);
+
+          const pagination = misSolicitudesUI.pagination;
+          if (pagination && pagination.container) {
+            pagination.container.hidden = true;
+          }
+
+          updateDownloadButtonState();
+        }
+
+        function setupMultipleDelete() {
+          if (!misSolicitudesUI.tbody || !misSolicitudesUI.selectAllCheckbox || !misSolicitudesUI.deleteSelectedButton) return;
+
+          misSolicitudesUI.tbody.addEventListener('change', event => {
+            if (event.target.matches('.solicitud-checkbox')) {
+              updateDeleteButtonState();
+            }
+          });
+
+          misSolicitudesUI.selectAllCheckbox.addEventListener('change', () => {
+            const checkboxes = misSolicitudesUI.tbody.querySelectorAll('.solicitud-checkbox');
+            checkboxes.forEach(checkbox => {
+              if (checkbox.disabled) {
+                checkbox.checked = false;
+                return;
+              }
+              checkbox.checked = misSolicitudesUI.selectAllCheckbox.checked;
+            });
+            updateDeleteButtonState();
+          });
+
+          misSolicitudesUI.deleteSelectedButton.addEventListener('click', handleDeleteSelected);
+        }
+
+        function updateDownloadButtonState() {
+          const button = misSolicitudesUI.downloadCsvButton;
+          if (!button) return;
+
+          const hasData = Array.isArray(misSolicitudesState.filtered) && misSolicitudesState.filtered.length > 0;
+          button.disabled = !hasData;
+          button.title = hasData
+            ? 'Descarga un CSV con las solicitudes visibles tras aplicar los filtros.'
+            : 'No hay solicitudes disponibles para descargar.';
+        }
+
+        function updateDeleteButtonState() {
+          const selectedCheckboxes = Array
+            .from(misSolicitudesUI.tbody.querySelectorAll('.solicitud-checkbox:checked'))
+            .filter(cb => !cb.disabled);
+          const count = selectedCheckboxes.length;
+
+          if (count > 0) {
+            misSolicitudesUI.deleteSelectedButton.disabled = false;
+            misSolicitudesUI.deleteSelectedButton.textContent = `Eliminar (${count})`;
+            misSolicitudesUI.deleteSelectedButton.title = 'Eliminar solicitudes seleccionadas';
+          } else {
+            misSolicitudesUI.deleteSelectedButton.disabled = true;
+            misSolicitudesUI.deleteSelectedButton.textContent = 'Eliminar';
+            misSolicitudesUI.deleteSelectedButton.title = 'Selecciona al menos una solicitud vigente para eliminarla';
+          }
+
+          const selectableCheckboxes = Array
+            .from(misSolicitudesUI.tbody.querySelectorAll('.solicitud-checkbox'))
+            .filter(cb => !cb.disabled);
+          if (misSolicitudesUI.selectAllCheckbox) {
+            const hasSelectable = selectableCheckboxes.length > 0;
+            misSolicitudesUI.selectAllCheckbox.disabled = !hasSelectable;
+            if (!hasSelectable) {
+              misSolicitudesUI.selectAllCheckbox.checked = false;
+              misSolicitudesUI.selectAllCheckbox.indeterminate = false;
+              misSolicitudesUI.deleteSelectedButton.title = 'Solo puedes eliminar solicitudes vigentes.';
+            } else {
+              misSolicitudesUI.selectAllCheckbox.checked = count > 0 && count === selectableCheckboxes.length;
+              misSolicitudesUI.selectAllCheckbox.indeterminate = count > 0 && count < selectableCheckboxes.length;
+            }
+          }
+        }
+
+        async function handleDeleteSelected() {
+          const selectedCheckboxes = Array
+            .from(misSolicitudesUI.tbody.querySelectorAll('.solicitud-checkbox:checked'))
+            .filter(cb => !cb.disabled);
+          const identifiers = selectedCheckboxes
+            .map(cb => {
+              const primary = (cb.dataset.key || '').trim();
+              if (primary) return primary;
+              const fallback = (cb.dataset.reservaId || '').trim();
+              return fallback || null;
+            })
+            .filter(Boolean);
+          const keysToDelete = Array.from(new Set(identifiers));
+
+          if (keysToDelete.length === 0) {
+            alert('No se pudieron identificar las solicitudes seleccionadas para eliminar.');
+            updateDeleteButtonState();
+            return;
+          }
+
+          const confirmed = await showDeleteMultipleConfirm(keysToDelete.length);
+          if (!confirmed) return;
+
+          misSolicitudesUI.deleteSelectedButton.disabled = true;
+          misSolicitudesUI.deleteSelectedButton.textContent = 'Eliminando…';
+
+          google.script.run
+            .withSuccessHandler(() => {
+              showDeleteMultipleSuccess(keysToDelete.length);
+              selectedCheckboxes.forEach(cb => {
+                cb.checked = false;
+              });
+              if (misSolicitudesUI.selectAllCheckbox) {
+                misSolicitudesUI.selectAllCheckbox.checked = false;
+                misSolicitudesUI.selectAllCheckbox.indeterminate = false;
+              }
+              misSolicitudesUI.deleteSelectedButton.disabled = true;
+              misSolicitudesUI.deleteSelectedButton.textContent = 'Eliminar';
+              updateDeleteButtonState();
+              loadMisSolicitudes();
+            })
+            .withFailureHandler(err => {
+              alert('Error al eliminar las solicitudes: ' + err.message);
+              updateDeleteButtonState();
+            })
+            .cancelarMultiplesReservas(keysToDelete);
+        }
+
+        function showDeleteMultipleConfirm(count) {
+          return new Promise(resolve => {
+            const overlay = deleteMultipleConfirmModal.overlay;
+            const message = deleteMultipleConfirmModal.message;
+            const confirmButton = deleteMultipleConfirmModal.confirm;
+            const cancelButton = deleteMultipleConfirmModal.cancel;
+
+            if (!overlay || !confirmButton || !cancelButton || !message) {
+              const fallback = window.confirm(`¿Seguro que quieres eliminar ${count} registros?`);
+              resolve(fallback);
+              return;
+            }
+
+            message.innerHTML = `¿Seguro que quieres eliminar <b>${count}</b> registros?`;
+            overlay.hidden = false;
+            overlay.style.display = 'flex';
+            overlay.scrollTop = 0;
+
+            const cleanup = () => {
+              overlay.hidden = true;
+              overlay.style.display = 'none';
+              overlay.removeEventListener('click', handleOverlayClick);
+              confirmButton.removeEventListener('click', handleConfirm);
+              cancelButton.removeEventListener('click', handleCancel);
+              document.removeEventListener('keydown', handleKeydown, true);
+            };
+
+            const handleConfirm = () => {
+              cleanup();
+              resolve(true);
+            };
+
+            const handleCancel = () => {
+              cleanup();
+              resolve(false);
+            };
+
+            const handleOverlayClick = (event) => {
+              if (event.target === overlay) {
+                cleanup();
+                resolve(false);
+              }
+            };
+
+            const handleKeydown = (event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                cleanup();
+                resolve(false);
+              }
+            };
+
+            confirmButton.disabled = false;
+            cancelButton.disabled = false;
+
+            overlay.addEventListener('click', handleOverlayClick);
+            confirmButton.addEventListener('click', handleConfirm);
+            cancelButton.addEventListener('click', handleCancel);
+            document.addEventListener('keydown', handleKeydown, true);
+
+            requestAnimationFrame(() => {
+              confirmButton.focus();
+            });
+          });
+        }
+
+        function showDeleteMultipleSuccess(count) {
+          const overlay = deleteMultipleSuccessModal.overlay;
+          const message = deleteMultipleSuccessModal.message;
+          const acceptButton = deleteMultipleSuccessModal.accept;
+
+          if (!overlay || !message || !acceptButton) {
+            alert(`Se han eliminado correctamente ${count} registros.`);
+            return;
+          }
+
+          message.innerHTML = `Se han eliminado correctamente <b>${count}</b> registros.`;
+          overlay.hidden = false;
+          overlay.style.display = 'flex';
+          overlay.scrollTop = 0;
+
+          const cleanup = () => {
+            overlay.hidden = true;
+            overlay.style.display = 'none';
+            acceptButton.removeEventListener('click', handleAccept);
+            overlay.removeEventListener('click', handleOverlayClick);
+            document.removeEventListener('keydown', handleKeydown, true);
+          };
+
+          const handleAccept = () => {
+            cleanup();
+          };
+
+          const handleOverlayClick = (event) => {
+            if (event.target === overlay) {
+              cleanup();
+            }
+          };
+
+          const handleKeydown = (event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              cleanup();
+            }
+          };
+
+          acceptButton.addEventListener('click', handleAccept);
+          overlay.addEventListener('click', handleOverlayClick);
+          document.addEventListener('keydown', handleKeydown, true);
+
+          requestAnimationFrame(() => {
+            acceptButton.focus();
+          });
+        }
+
+        navButtons.forEach(btn => {
+          btn.addEventListener('click', () => {
+            const target = btn.dataset.target;
+            if (!canAccessSection(target)) {
+              return;
+            }
+            const calendarMode = btn.dataset.calendarMode || null;
+            activateSection(target, { button: btn, calendarMode });
+          });
+        });
+
+        activateSection('inicio');
+      });
+    </script>
