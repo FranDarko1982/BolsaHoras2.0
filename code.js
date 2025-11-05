@@ -11,6 +11,7 @@ const SHEET_RES_LIBRAR     = 'bbdd reservas horas librar';
 const SHEET_DATOS_LOCKER   = 'Datos Locker';
 const SHEET_ADMIN          = 'admin';
 const SHEET_EMPLEADOS      = 'Empleados';
+const SHEET_CAMPANIAS      = 'Campañas';
 
 const RESERVA_ID_PROP_KEY = 'RESERVA_ID_COUNTER';
 
@@ -44,6 +45,7 @@ const sheetDatosLocker = ss.getSheetByName(SHEET_DATOS_LOCKER);
 
 const sheetAdmin       = ss.getSheetByName(SHEET_ADMIN);
 const sheetEmpleados   = ss.getSheetByName(SHEET_EMPLEADOS);
+const sheetCampanias   = ss.getSheetByName(SHEET_CAMPANIAS);
 const SHEET_RES_COBRAR_NAME = sheetResCobrar ? sheetResCobrar.getName() : SHEET_RES_COBRAR;
 
 const APP_TIMEZONE = ss.getSpreadsheetTimeZone() || Session.getScriptTimeZone();
@@ -61,7 +63,6 @@ function toLocalIso(dt) {
 /************************************************************
  *  CONFIGURACIÓN: campañas que pueden COBRAR
  ************************************************************/
-const SHEET_CONFIG_COBRAR = 'CONFIG_cobrar';
 
 function puedeCobrarCampania(campania) {
   const context = getUserContext();
@@ -79,19 +80,24 @@ function puedeCobrarCampania(campania) {
 
   if (!targetCampania) return false;
 
-  const sh = ss.getSheetByName(SHEET_CONFIG_COBRAR);
+  const sh = sheetCampanias || ss.getSheetByName(SHEET_CAMPANIAS);
   if (!sh) return false;
 
-  // Obtiene todas las campañas desde la columna A (desde fila 2)
+  // Obtiene las campañas desde la columna A y su bandera de cobro desde la columna B (fila 2 en adelante)
   const lastRow = sh.getLastRow();
   if (lastRow < 2) return false;
 
-  const valores = sh.getRange(2, 1, lastRow - 1, 1).getValues().flat();
-  const listaCampanias = valores
-    .map(v => normalizeCampaniaValue(v))
-    .filter(Boolean);
+  const normalizedTarget = normalizeCampaniaValue(targetCampania);
+  if (!normalizedTarget) return false;
 
-  return listaCampanias.includes(normalizeCampaniaValue(targetCampania));
+  const registros = sh.getRange(2, 1, lastRow - 1, 2).getValues();
+  return registros.some(([campaniaNombre, banderaCobrar]) => {
+    const campaniaNormalizada = normalizeCampaniaValue(campaniaNombre);
+    if (!campaniaNormalizada || campaniaNormalizada !== normalizedTarget) return false;
+
+    const bandera = normalizeString(banderaCobrar);
+    return bandera === 'si' || bandera === 'sí';
+  });
 }
 
 /************************************************************
