@@ -677,33 +677,69 @@
         });
       }
 
+      function ensureSuccessOverlay() {
+        const overlay = document.getElementById('success-overlay');
+        if (overlay && overlay.parentElement !== document.body) {
+          document.body.appendChild(overlay);
+        }
+        return overlay;
+      }
+
       function showSuccessCancel(msg) {
         return new Promise(resolve => {
-          const overlay = document.getElementById('success-overlay');
-          document.querySelector('#success-modal h3').innerText = "Solicitud cancelada";
-          document.getElementById('success-text').innerText = msg;
-          overlay.style.display = 'flex';
-          document.getElementById('btn-success-ok').onclick = function() {
-            overlay.style.display = 'none';
-            // restaurar título
-            document.querySelector('#success-modal h3').innerText = "Solicitud registrada correctamente";
+          const overlay = ensureSuccessOverlay();
+          if (!overlay) {
+            alert(msg);
             resolve();
-          };
+            return;
+          }
+          const titleEl = document.querySelector('#success-modal h3');
+          const textEl = document.getElementById('success-text');
+          if (titleEl) titleEl.innerText = "Solicitud cancelada";
+          if (textEl) textEl.innerText = msg;
+          overlay.style.display = 'flex';
+          const okButton = document.getElementById('btn-success-ok');
+          if (okButton) {
+            okButton.onclick = function() {
+              overlay.style.display = 'none';
+              if (titleEl) {
+                titleEl.innerText = "Solicitud registrada correctamente";
+              }
+              resolve();
+            };
+          } else {
+            overlay.style.display = 'none';
+            resolve();
+          }
         });
       }
 
       function showSuccess(msg, titulo = "Solicitud registrada correctamente") {
         return new Promise(resolve => {
-          const overlay = document.getElementById('success-overlay');
-          document.querySelector('#success-modal h3').innerText = titulo;
-          document.getElementById('success-text').innerText = msg;
-          overlay.style.display = 'flex';
-          document.getElementById('btn-success-ok').onclick = function() {
-            overlay.style.display = 'none';
-            // restaurar título para próximos usos
-            document.querySelector('#success-modal h3').innerText = "Solicitud registrada correctamente";
+          const overlay = ensureSuccessOverlay();
+          if (!overlay) {
+            alert(msg);
             resolve();
-          };
+            return;
+          }
+          const titleEl = document.querySelector('#success-modal h3');
+          const textEl = document.getElementById('success-text');
+          if (titleEl) titleEl.innerText = titulo;
+          if (textEl) textEl.innerText = msg;
+          overlay.style.display = 'flex';
+          const okButton = document.getElementById('btn-success-ok');
+          if (okButton) {
+            okButton.onclick = function() {
+              overlay.style.display = 'none';
+              if (titleEl) {
+                titleEl.innerText = "Solicitud registrada correctamente";
+              }
+              resolve();
+            };
+          } else {
+            overlay.style.display = 'none';
+            resolve();
+          }
         });
       }
     </script>

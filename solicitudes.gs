@@ -344,11 +344,6 @@ function tramitarSolicitudCobrar(options) {
 
   const bodyRange = sheetResCobrar.getRange(2, 1, sheetResCobrar.getLastRow() - 1, sheetResCobrar.getLastColumn());
   const bodyValues = bodyRange.getValues();
-  const estadosRange = colEstado >= 0
-    ? sheetResCobrar.getRange(2, colEstado + 1, bodyValues.length, 1)
-    : null;
-  const estadosValues = estadosRange ? estadosRange.getValues() : null;
-
   let targetRowIndex = -1;
   for (let i = 0; i < bodyValues.length; i++) {
     const row = bodyValues[i];
@@ -369,24 +364,20 @@ function tramitarSolicitudCobrar(options) {
   const estadoFinal = accionRaw === 'aceptar' ? 'ACEPTADA' : 'DENEGADA';
   const esAceptacion = accionRaw === 'aceptar';
 
-  if (esAceptacion) {
-    if (colValidacion >= 0) {
-      sheetResCobrar
-        .getRange(targetRowIndex + 2, colValidacion + 1)
-        .setValue('OK');
-      rowValues[colValidacion] = 'OK';
-    }
-    if (colTipo >= 0) {
-      sheetResCobrar
-        .getRange(targetRowIndex + 2, colTipo + 1)
-        .setValue('Complementaria aceptada');
-      rowValues[colTipo] = 'Complementaria aceptada';
-    }
-  } else if (estadosRange) {
-    estadosRange.getCell(targetRowIndex + 1, 1).setValue(estadoFinal);
-    if (colEstado >= 0) {
-      rowValues[colEstado] = estadoFinal;
-    }
+  const nuevoTipo = esAceptacion ? 'Complementaria aceptada' : 'Complementaria denegada';
+
+  if (colValidacion >= 0) {
+    sheetResCobrar
+      .getRange(targetRowIndex + 2, colValidacion + 1)
+      .setValue('OK');
+    rowValues[colValidacion] = 'OK';
+  }
+
+  if (colTipo >= 0) {
+    sheetResCobrar
+      .getRange(targetRowIndex + 2, colTipo + 1)
+      .setValue(nuevoTipo);
+    rowValues[colTipo] = nuevoTipo;
   }
 
   const correoIndex = _findFirstIndex(headerMap, ['Correo', 'Email', 'Mail']);
