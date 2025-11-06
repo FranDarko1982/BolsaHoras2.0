@@ -246,6 +246,11 @@ function _reservarHora(tipo, sheetResObj, campania, startISO, context) {
 
   sendConfirmationEmail(tipoFinal, resolvedCampania, ini, franja.split('-')[0], franja.split('-')[1], 1, email, reservaId);
 
+  registrarLogEvento(
+    `Reserva creada [${tipoFinal}] - ${resolvedCampania} - ${reservaId}`,
+    ctx.email || email
+  );
+
   if (esComplementaria) {
     return [
       'Tu solicitud se ha enviado correctamente.',
@@ -320,6 +325,11 @@ function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas, con
   sh.getRange(firstRow, 11, reservaIdValues.length, 1).setValues(reservaIdValues);
 
   sendConfirmationEmail(tipoFinal, resolvedCampania, ini, primerFranja, ultimaFranja, horas, email, reservaId);
+
+  registrarLogEvento(
+    `Reserva creada [${tipoFinal}] - ${resolvedCampania} - ${reservaId}`,
+    ctx.email || email
+  );
 
   if (esComplementaria) {
     return [

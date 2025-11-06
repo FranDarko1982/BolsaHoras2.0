@@ -18,6 +18,7 @@ const SHEET_DATOS_LOCKER   = 'Datos Locker';
 const SHEET_ADMIN          = 'admin';
 const SHEET_EMPLEADOS      = 'Empleados';
 const SHEET_CAMPANIAS      = 'Campañas';
+const SHEET_LOGS           = 'logs';
 
 /** Propiedad global utilizada para generar IDs correlativos de reserva. */
 const RESERVA_ID_PROP_KEY = 'RESERVA_ID_COUNTER';
@@ -52,6 +53,7 @@ const sheetDatosLocker = ss.getSheetByName(SHEET_DATOS_LOCKER);
 const sheetAdmin       = ss.getSheetByName(SHEET_ADMIN);
 const sheetEmpleados   = ss.getSheetByName(SHEET_EMPLEADOS);
 const sheetCampanias   = ss.getSheetByName(SHEET_CAMPANIAS);
+const sheetLogs        = ss.getSheetByName(SHEET_LOGS) || createLogsSheet(ss, SHEET_LOGS);
 
 /** Nombre efectivo de la hoja de reservas de cobro, respetando alias previos. */
 const SHEET_RES_COBRAR_NAME = sheetResCobrar ? sheetResCobrar.getName() : SHEET_RES_COBRAR;
@@ -87,6 +89,19 @@ function createReservaSheet(spreadsheet, name) {
   sh.appendRow(['Campaña', 'Fecha', 'HORAS', 'FRANJA', 'key', 'Correo', 'Tipo petición']);
   sh.setFrozenRows(1);
   sh.getRange(1, 11).setValue('ID reserva');
+  return sh;
+}
+
+/**
+ * Crea la hoja de logs con el encabezado estándar.
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} spreadsheet
+ * @param {string} name
+ * @return {GoogleAppsScript.Spreadsheet.Sheet}
+ */
+function createLogsSheet(spreadsheet, name) {
+  const sh = spreadsheet.insertSheet(name);
+  sh.appendRow(['Fecha', 'Hora', 'Correo', 'Tipo de evento']);
+  sh.setFrozenRows(1);
   return sh;
 }
 

@@ -45,6 +45,11 @@ function _cancelarReservaEnHoja(sheetResObj, key) {
 
   sh.deleteRow(row);
 
+  registrarLogEvento(
+    `Reserva cancelada [${sh.getName()}] - ${String(campania || key)}`,
+    context.email
+  );
+
   if (emailUsuario && String(emailUsuario).indexOf('@') > -1) {
     const hoy        = new Date();
     const tz         = getAppTimeZone();
@@ -93,8 +98,8 @@ function cancelarMultiplesReservas(keys) {
 }
 
 function actualizarSolicitud(payload) {
-  const { isAdmin } = getUserContext();
-  if (!isAdmin) {
+  const context = getUserContext();
+  if (!context.isAdmin) {
     throw new Error('No tienes permisos para editar solicitudes.');
   }
 
@@ -102,6 +107,10 @@ function actualizarSolicitud(payload) {
 
   const updatedTrabajar = _actualizarSolicitudEnHoja(sheetResTrabajar, data);
   if (updatedTrabajar) {
+    registrarLogEvento(
+      `Reserva modificada [${updatedTrabajar.sheet}] - ${updatedTrabajar.key}`,
+      context.email
+    );
     return {
       message: 'Solicitud actualizada correctamente.',
       key: updatedTrabajar.key,
@@ -111,6 +120,10 @@ function actualizarSolicitud(payload) {
 
   const updatedCobrar = _actualizarSolicitudEnHoja(sheetResCobrar, data);
   if (updatedCobrar) {
+    registrarLogEvento(
+      `Reserva modificada [${updatedCobrar.sheet}] - ${updatedCobrar.key}`,
+      context.email
+    );
     return {
       message: 'Solicitud actualizada correctamente.',
       key: updatedCobrar.key,
@@ -120,6 +133,10 @@ function actualizarSolicitud(payload) {
 
   const updatedLibrar = _actualizarSolicitudEnHoja(sheetResLibrar, data);
   if (updatedLibrar) {
+    registrarLogEvento(
+      `Reserva modificada [${updatedLibrar.sheet}] - ${updatedLibrar.key}`,
+      context.email
+    );
     return {
       message: 'Solicitud actualizada correctamente.',
       key: updatedLibrar.key,
@@ -445,6 +462,11 @@ function tramitarSolicitudCobrar(options) {
   if (colEstado >= 0) {
     response.estadoSolicitud = String(rowValues[colEstado] || '').trim();
   }
+
+  registrarLogEvento(
+    `Solicitud tramitada (${estadoFinal}) - ${response.reservaId || response.key || reservaId || key}`,
+    context.email
+  );
 
   return response;
 }
