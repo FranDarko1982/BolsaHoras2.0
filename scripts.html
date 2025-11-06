@@ -65,6 +65,26 @@
           .map(setupHorasUpload)
           .filter(Boolean);
 
+        const plantillasUI = {
+          button: document.querySelector('.control-panel-btn--plantillas'),
+          overlay: document.getElementById('plantillasOverlay'),
+          modal: document.getElementById('plantillasModal'),
+          close: document.getElementById('plantillasClose'),
+          status: document.getElementById('plantillasStatus'),
+          list: document.getElementById('plantillasList'),
+          retry: document.getElementById('plantillasRetry')
+        };
+
+        const plantillasState = {
+          loading: false,
+          loaded: false,
+          items: [],
+          error: '',
+          trigger: null,
+          keydownHandler: null,
+          keydownAttached: false
+        };
+
         const editModal = {
           overlay: document.getElementById('editSolicitudOverlay'),
           modal: document.getElementById('editSolicitudModal'),
@@ -183,6 +203,7 @@
         initializeMisSolicitudesFilters();
         setupMultipleDelete();
         setupMisSolicitudesDownload();
+        setupPlantillasPanel();
 
         let dashboardLoaded = false;
         let solicitudesChartInstance = null;
@@ -336,6 +357,279 @@
           if (state && state.input) {
             state.input.value = '';
           }
+        }
+
+        function setupPlantillasPanel() {
+          const { button, overlay, close, retry, modal } = plantillasUI;
+          if (!button || !overlay || !modal) return;
+
+          button.addEventListener('click', () => {
+            plantillasState.trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            openPlantillasModal();
+          });
+
+          overlay.addEventListener('click', (event) => {
+            if (event && event.target === overlay) {
+              closePlantillasModal();
+            }
+          });
+
+          plantillasState.keydownHandler = (event) => {
+            if (!event) return;
+            if (event.key === 'Escape' || event.key === 'Esc') {
+              event.preventDefault();
+              closePlantillasModal();
+            }
+          };
+
+          if (close) {
+            close.addEventListener('click', closePlantillasModal);
+          }
+
+          if (retry) {
+            retry.addEventListener('click', () => fetchPlantillas(true));
+          }
+        }
+
+        function openPlantillasModal() {
+          const { overlay, modal, close } = plantillasUI;
+          if (!overlay || !modal) return;
+
+          overlay.hidden = false;
+          overlay.style.display = 'flex';
+          overlay.scrollTop = 0;
+
+          if (plantillasState.keydownHandler && !plantillasState.keydownAttached) {
+            document.addEventListener('keydown', plantillasState.keydownHandler, true);
+            plantillasState.keydownAttached = true;
+          }
+
+          renderPlantillasState();
+
+          if (!plantillasState.loaded && !plantillasState.loading) {
+            fetchPlantillas();
+          }
+
+          const focusTarget = close || modal;
+          if (focusTarget && typeof focusTarget.focus === 'function') {
+            requestAnimationFrame(() => focusTarget.focus());
+          }
+        }
+
+        function closePlantillasModal() {
+          const { overlay } = plantillasUI;
+          if (!overlay) return;
+
+          overlay.hidden = true;
+          overlay.style.display = 'none';
+
+          if (plantillasState.keydownHandler && plantillasState.keydownAttached) {
+            document.removeEventListener('keydown', plantillasState.keydownHandler, true);
+            plantillasState.keydownAttached = false;
+          }
+
+          const trigger = plantillasState.trigger;
+          plantillasState.trigger = null;
+
+          if (trigger && typeof trigger.focus === 'function') {
+            requestAnimationFrame(() => trigger.focus());
+          }
+        }
+
+        function fetchPlantillas(forceRefresh) {
+          if (plantillasState.loading) return;
+          if (plantillasState.loaded && !forceRefresh) return;
+
+          if (typeof google === 'undefined' || !google.script || !google.script.run) {
+            plantillasState.loaded = true;
+            plantillasState.loading = false;
+            plantillasState.error = 'Esta acción solo está disponible desde la versión publicada de la aplicación.';
+            renderPlantillasState();
+            return;
+          }
+
+          plantillasState.loading = true;
+          plantillasState.error = '';
+          renderPlantillasState();
+
+          google.script.run
+            .withSuccessHandler((response) => {
+              const files = response && Array.isArray(response.files) ? response.files : [];
+              plantillasState.items = files
+                .map(mapPlantillaItem)
+                .filter(Boolean);
+              plantillasState.loaded = true;
+              plantillasState.loading = false;
+              plantillasState.error = '';
+              renderPlantillasState();
+            })
+            .withFailureHandler((error) => {
+              const message = error && error.message
+                ? String(error.message)
+                : 'No se pudieron recuperar las plantillas de Drive.';
+              plantillasState.loading = false;
+              plantillasState.loaded = false;
+              plantillasState.error = message;
+              renderPlantillasState();
+            })
+            .obtenerPlantillasExcel();
+        }
+
+        function renderPlantillasState() {
+          const { status, list, retry } = plantillasUI;
+          if (retry) {
+            retry.hidden = true;
+          }
+          setPlantillasStatus('', '');
+
+          if (list) {
+            list.innerHTML = '';
+          }
+
+          if (plantillasState.loading) {
+            setPlantillasStatus('Cargando archivos...', '');
+            return;
+          }
+
+          if (plantillasState.error) {
+            setPlantillasStatus(plantillasState.error, 'error');
+            if (retry) {
+              retry.hidden = false;
+            }
+            return;
+          }
+
+          if (!plantillasState.items.length) {
+            setPlantillasStatus('No hay plantillas disponibles actualmente.', 'empty');
+            return;
+          }
+
+          setPlantillasStatus('', '');
+
+          if (!list) {
+            return;
+          }
+
+          plantillasState.items.forEach((item) => {
+            const container = document.createElement('div');
+            container.className = 'plantillas-item';
+            container.setAttribute('role', 'listitem');
+
+            const icon = document.createElement('span');
+            icon.className = 'plantillas-item-icon';
+            icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h7.2L20 9.8V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path><path d="M13 3v5a2 2 0 0 0 2 2h5"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg>';
+
+            const info = document.createElement('div');
+            info.className = 'plantillas-item-info';
+
+            const title = document.createElement('p');
+            title.className = 'plantillas-item-title';
+            title.textContent = item.name || 'Plantilla';
+
+            const meta = document.createElement('div');
+            meta.className = 'plantillas-item-meta';
+            const metaText = formatPlantillaMeta(item);
+            if (metaText) {
+              meta.textContent = metaText;
+            }
+
+            info.appendChild(title);
+            if (metaText) {
+              info.appendChild(meta);
+            }
+
+            const link = document.createElement('a');
+            link.className = 'plantillas-item-link';
+            link.href = item.downloadUrl || item.url || '#';
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.textContent = 'Descargar';
+            link.setAttribute('aria-label', `Descargar plantilla ${item.name || ''}`.trim());
+
+            container.appendChild(icon);
+            container.appendChild(info);
+            container.appendChild(link);
+
+            list.appendChild(container);
+          });
+        }
+
+        function setPlantillasStatus(message, variant) {
+          const { status } = plantillasUI;
+          if (!status) {
+            return;
+          }
+          status.textContent = message || '';
+          status.hidden = !message;
+          status.classList.remove('plantillas-status--error', 'plantillas-status--empty');
+          if (variant === 'error') {
+            status.classList.add('plantillas-status--error');
+          } else if (variant === 'empty') {
+            status.classList.add('plantillas-status--empty');
+          }
+        }
+
+        function mapPlantillaItem(raw) {
+          if (!raw || typeof raw !== 'object') return null;
+          const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+          const url = typeof raw.url === 'string' ? raw.url : '';
+          const downloadUrl = typeof raw.downloadUrl === 'string' ? raw.downloadUrl : '';
+          const mimeType = typeof raw.mimeType === 'string' ? raw.mimeType : '';
+          const extension = typeof raw.extension === 'string' ? raw.extension.toLowerCase() : '';
+          const updatedAt = raw.updatedAt ? new Date(raw.updatedAt) : null;
+          const sizeBytes = Number(raw.sizeBytes);
+          return {
+            id: raw.id || '',
+            name: name || 'Archivo',
+            url,
+            downloadUrl: downloadUrl || url,
+            mimeType,
+            extension,
+            updatedAt: updatedAt && Number.isFinite(updatedAt.getTime()) ? updatedAt : null,
+            sizeBytes: Number.isFinite(sizeBytes) ? sizeBytes : null,
+            typeLabel: typeof raw.typeLabel === 'string' && raw.typeLabel ? raw.typeLabel : resolvePlantillaTypeLabel(extension, mimeType)
+          };
+        }
+
+        function resolvePlantillaTypeLabel(extension, mimeType) {
+          const ext = (extension || '').replace(/^\./, '').toLowerCase();
+          if (ext === 'csv') return 'CSV';
+          if (ext === 'xls' || ext === 'xlsx' || ext === 'xlsm' || ext === 'xlsb') return 'Excel';
+          if (mimeType && mimeType.indexOf('spreadsheetml') !== -1) return 'Excel';
+          if (mimeType && mimeType.indexOf('csv') !== -1) return 'CSV';
+          return 'Archivo';
+        }
+
+        function formatPlantillaMeta(item) {
+          if (!item) return '';
+          const parts = [];
+          if (item.typeLabel) {
+            parts.push(item.typeLabel);
+          }
+          if (item.sizeBytes != null) {
+            const sizeLabel = formatBytes(item.sizeBytes);
+            if (sizeLabel) {
+              parts.push(sizeLabel);
+            }
+          }
+          if (item.updatedAt instanceof Date && Number.isFinite(item.updatedAt.getTime())) {
+            const formatter = new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium' });
+            parts.push(`Actualizado ${formatter.format(item.updatedAt)}`);
+          }
+          return parts.join(' · ');
+        }
+
+        function formatBytes(value) {
+          const size = Number(value);
+          if (!Number.isFinite(size) || size <= 0) return '';
+          const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+          let index = 0;
+          let current = size;
+          while (current >= 1024 && index < units.length - 1) {
+            current /= 1024;
+            index++;
+          }
+          return `${current % 1 === 0 ? current : current.toFixed(current >= 100 ? 0 : current >= 10 ? 1 : 2)} ${units[index]}`;
         }
 
         function canAccessSection(target) {

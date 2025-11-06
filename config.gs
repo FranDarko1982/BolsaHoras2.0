@@ -36,6 +36,7 @@ const COL = { CAMPAÑA: 0, FECHA: 1, FRANJA: 3, DISPON: 5 };
 /** Recursos estáticos utilizados en correos y vistas. */
 const URL_LOGO_INTELCIA = 'https://drive.google.com/uc?export=view&id=1vNS8n_vYYJL9VQKx7jZxjZmMXUz0uECG';
 const URL_APP           = 'https://script.google.com/a/macros/intelcia.com/s/AKfycbwMMz5v1uFYTRIboy3rahRv91cfAGXyRbWP_UdlaZr_44LZq9LwyB7TemfGToytCHdmgw/exec';
+const PLANTILLAS_FOLDER_ID = '1i_8bEEuTzYU30q2nILSyYn33eRAqLa2C';
 
 /** Conexión principal a la hoja de cálculo y referencias cacheadas. */
 const ss               = SpreadsheetApp.openById(SPREADSHEET_ID);

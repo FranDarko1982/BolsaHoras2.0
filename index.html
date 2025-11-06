@@ -237,7 +237,7 @@
                     <span class="control-panel-btn-subtitle">Cargar horas</span>
                   </span>
                 </button>
-                 <button type="button" class="control-panel-btn control-panel-btn--empleados" aria-label="Cargar empleados">
+                <button type="button" class="control-panel-btn control-panel-btn--empleados" aria-label="Cargar empleados">
                   <span class="control-panel-btn-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -249,6 +249,20 @@
                   <span class="control-panel-btn-content">
                     <span class="control-panel-btn-title">Empleados</span>
                     <span class="control-panel-btn-subtitle">Cargar empleados</span>
+                  </span>
+                </button>
+                <button type="button" class="control-panel-btn control-panel-btn--plantillas" aria-label="Ver plantillas disponibles">
+                  <span class="control-panel-btn-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4 5a2 2 0 0 1 2-2h7.2L20 9.8V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+                      <path d="M13 3v5a2 2 0 0 0 2 2h5" />
+                      <path d="M8 13h8" />
+                      <path d="M8 17h5" />
+                    </svg>
+                  </span>
+                  <span class="control-panel-btn-content">
+                    <span class="control-panel-btn-title">Plantillas</span>
+                    <span class="control-panel-btn-subtitle">Descargar archivos</span>
                   </span>
                 </button>
               </div>
@@ -476,6 +490,21 @@
           <div class="modal-confirm-actions modal-confirm-actions--single">
             <button type="button" id="deleteSolicitudSuccessAccept" class="btn btn-primary">Aceptar</button>
           </div>
+        </div>
+      </div>
+
+      <div id="plantillasOverlay" class="modal-overlay" hidden>
+        <div id="plantillasModal" class="plantillas-modal" role="dialog" aria-modal="true" aria-labelledby="plantillasModalTitle">
+          <button type="button" id="plantillasClose" class="modal-close" aria-label="Cerrar">×</button>
+          <div class="modal-header plantillas-header">
+            <div>
+              <h3 id="plantillasModalTitle">Plantillas disponibles</h3>
+              <p id="plantillasModalSubtitle" class="plantillas-subtitle">Descarga las plantillas para importar datos en formato Excel.</p>
+            </div>
+          </div>
+          <div id="plantillasStatus" class="plantillas-status" role="status"></div>
+          <div id="plantillasList" class="plantillas-list" role="list"></div>
+          <button type="button" id="plantillasRetry" class="btn btn-secondary plantillas-retry" hidden>Reintentar</button>
         </div>
       </div>
 
