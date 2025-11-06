@@ -367,10 +367,11 @@ function tramitarSolicitudCobrar(options) {
   const nuevoTipo = esAceptacion ? 'Complementaria aceptada' : 'Complementaria denegada';
 
   if (colValidacion >= 0) {
+    const validacion = esAceptacion ? 'OK' : 'KO';
     sheetResCobrar
       .getRange(targetRowIndex + 2, colValidacion + 1)
-      .setValue('OK');
-    rowValues[colValidacion] = 'OK';
+      .setValue(validacion);
+    rowValues[colValidacion] = validacion;
   }
 
   if (colTipo >= 0) {
