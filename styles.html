@@ -1048,15 +1048,21 @@
       }
 
       .plantillas-item-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
         text-decoration: none;
         font-weight: 600;
         font-size: 0.92rem;
         padding: 9px 16px;
         border-radius: 999px;
         border: 1px solid rgba(79, 95, 216, 0.26);
+        background: #fff;
         color: #4f5fd8;
         transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
         flex-shrink: 0;
+        cursor: pointer;
       }
 
       .plantillas-item-link:hover,
@@ -1064,6 +1070,14 @@
         background: rgba(79, 95, 216, 0.12);
         border-color: rgba(79, 95, 216, 0.4);
         color: #3d4bcc;
+      }
+
+      .plantillas-item-link:disabled {
+        opacity: 0.65;
+        cursor: default;
+        background: rgba(79, 95, 216, 0.1);
+        border-color: rgba(79, 95, 216, 0.22);
+        color: rgba(79, 95, 216, 0.6);
       }
 
       .plantillas-retry {

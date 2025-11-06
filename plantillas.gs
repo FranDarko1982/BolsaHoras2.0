@@ -78,7 +78,6 @@ function obtenerPlantillasExcel() {
       updatedAt: updatedAt instanceof Date ? updatedAt.toISOString() : '',
       sizeBytes: Number.isFinite(sizeBytes) && sizeBytes >= 0 ? sizeBytes : null,
       url: url,
-      downloadUrl: _buildPlantillaDownloadUrl(id),
       typeLabel: _resolvePlantillaTypeLabel(extension, mimeType)
     });
   }
@@ -105,12 +104,6 @@ function _extractPlantillaExtension(name) {
   return normalized.substring(lastDot + 1);
 }
 
-function _buildPlantillaDownloadUrl(fileId) {
-  const id = String(fileId || '').trim();
-  if (!id) return '';
-  return 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(id);
-}
-
 function _resolvePlantillaTypeLabel(extension, mimeType) {
   const ext = (extension || '').toLowerCase();
   if (ext === 'csv') return 'CSV';
@@ -119,4 +112,99 @@ function _resolvePlantillaTypeLabel(extension, mimeType) {
   if (mime.indexOf('spreadsheetml') !== -1 || mime.indexOf('excel') !== -1) return 'Excel';
   if (mime.indexOf('csv') !== -1) return 'CSV';
   return 'Archivo';
+}
+
+function descargarPlantillaExcel(fileId) {
+  const context = getUserContext();
+  ensureAuthorizedContext(context);
+
+  if (!context.isAdmin && !context.isGestor) {
+    throw new Error('No tienes permisos para descargar plantillas.');
+  }
+
+  const targetId = String(fileId || '').trim();
+  if (!targetId) {
+    throw new Error('No se ha indicado un archivo válido para descargar.');
+  }
+
+  if (!PLANTILLAS_FOLDER_ID) {
+    throw new Error('No se ha configurado la carpeta de plantillas.');
+  }
+
+  let file;
+  try {
+    file = DriveApp.getFileById(targetId);
+  } catch (error) {
+    throw new Error('No se pudo acceder al archivo solicitado.');
+  }
+
+  if (!file) {
+    throw new Error('No se encontró el archivo solicitado.');
+  }
+
+  if (!_isFileInsideFolderTree(file, PLANTILLAS_FOLDER_ID)) {
+    throw new Error('El archivo solicitado no está dentro de la carpeta de plantillas permitida.');
+  }
+
+  const name = String(file.getName() || '').trim() || 'plantilla.xlsx';
+  const mimeType = String(file.getMimeType() || 'application/octet-stream');
+  const blob = file.getBlob();
+  if (!blob) {
+    throw new Error('No se pudo leer el contenido del archivo solicitado.');
+  }
+
+  const bytes = blob.getBytes();
+  if (!bytes || !bytes.length) {
+    throw new Error('El archivo solicitado está vacío.');
+  }
+
+  if (bytes.length > 10 * 1024 * 1024) {
+    throw new Error('La plantilla es demasiado grande para descargarla desde la aplicación (límite 10 MB).');
+  }
+
+  const base64 = Utilities.base64Encode(bytes);
+
+  return {
+    fileName: name,
+    mimeType: mimeType,
+    base64: base64,
+    size: bytes.length
+  };
+}
+
+function _isFileInsideFolderTree(file, targetFolderId) {
+  if (!file || !targetFolderId) return false;
+  const targetId = String(targetFolderId).trim();
+  if (!targetId) return false;
+
+  const visited = {};
+  const stack = [];
+  const parents = file.getParents();
+
+  while (parents.hasNext()) {
+    stack.push(parents.next());
+  }
+
+  while (stack.length) {
+    const folder = stack.pop();
+    if (!folder) continue;
+
+    const folderId = folder.getId();
+    if (!folderId || visited[folderId]) {
+      continue;
+    }
+
+    if (folderId === targetId) {
+      return true;
+    }
+
+    visited[folderId] = true;
+
+    const nextParents = folder.getParents();
+    while (nextParents.hasNext()) {
+      stack.push(nextParents.next());
+    }
+  }
+
+  return false;
 }

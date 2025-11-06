@@ -82,7 +82,8 @@
           error: '',
           trigger: null,
           keydownHandler: null,
-          keydownAttached: false
+          keydownAttached: false,
+          downloadingId: ''
         };
 
         const editModal = {
@@ -538,20 +539,96 @@
               info.appendChild(meta);
             }
 
-            const link = document.createElement('a');
-            link.className = 'plantillas-item-link';
-            link.href = item.downloadUrl || item.url || '#';
-            link.target = '_blank';
-            link.rel = 'noopener';
-            link.textContent = 'Descargar';
-            link.setAttribute('aria-label', `Descargar plantilla ${item.name || ''}`.trim());
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'plantillas-item-link';
+            button.textContent = plantillasState.downloadingId === item.id ? 'Descargando...' : 'Descargar';
+            button.disabled = plantillasState.downloadingId === item.id;
+            button.setAttribute('aria-label', `Descargar plantilla ${item.name || ''}`.trim());
+            button.addEventListener('click', () => handlePlantillaDownload(item));
 
             container.appendChild(icon);
             container.appendChild(info);
-            container.appendChild(link);
+            container.appendChild(button);
 
             list.appendChild(container);
           });
+        }
+
+        function handlePlantillaDownload(item) {
+          if (!item || !item.id) return;
+          if (plantillasState.downloadingId) return;
+
+          if (typeof google === 'undefined' || !google.script || !google.script.run) {
+            alert('La descarga solo está disponible desde la aplicación publicada.');
+            return;
+          }
+
+          plantillasState.downloadingId = item.id;
+          renderPlantillasState();
+
+          google.script.run
+            .withSuccessHandler((response) => {
+              plantillasState.downloadingId = '';
+              renderPlantillasState();
+              if (!response || !response.base64) {
+                alert('No se pudo descargar la plantilla seleccionada.');
+                return;
+              }
+              triggerPlantillaDownload(response);
+            })
+            .withFailureHandler((error) => {
+              plantillasState.downloadingId = '';
+              renderPlantillasState();
+              const message = error && error.message
+                ? String(error.message)
+                : 'No se pudo descargar la plantilla seleccionada.';
+              alert(message);
+            })
+            .descargarPlantillaExcel(item.id);
+        }
+
+        function triggerPlantillaDownload(payload) {
+          if (!payload || !payload.base64) return;
+          const fileName = typeof payload.fileName === 'string' && payload.fileName.trim()
+            ? payload.fileName.trim()
+            : 'plantilla.xlsx';
+          const mimeType = typeof payload.mimeType === 'string' && payload.mimeType
+            ? payload.mimeType
+            : 'application/octet-stream';
+          const byteArray = decodeBase64ToUint8Array(payload.base64);
+          if (!byteArray || !byteArray.length) {
+            alert('No se pudo preparar el archivo para la descarga.');
+            return;
+          }
+          const blob = new Blob([byteArray], { type: mimeType });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          }, 0);
+        }
+
+        function decodeBase64ToUint8Array(base64) {
+          try {
+            const cleanBase64 = String(base64 || '').replace(/[\r\n\s]/g, '');
+            const binaryString = atob(cleanBase64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes;
+          } catch (error) {
+            console.error('Error decoding base64', error);
+            return new Uint8Array(0);
+          }
         }
 
         function setPlantillasStatus(message, variant) {
@@ -573,7 +650,6 @@
           if (!raw || typeof raw !== 'object') return null;
           const name = typeof raw.name === 'string' ? raw.name.trim() : '';
           const url = typeof raw.url === 'string' ? raw.url : '';
-          const downloadUrl = typeof raw.downloadUrl === 'string' ? raw.downloadUrl : '';
           const mimeType = typeof raw.mimeType === 'string' ? raw.mimeType : '';
           const extension = typeof raw.extension === 'string' ? raw.extension.toLowerCase() : '';
           const updatedAt = raw.updatedAt ? new Date(raw.updatedAt) : null;
@@ -582,7 +658,6 @@
             id: raw.id || '',
             name: name || 'Archivo',
             url,
-            downloadUrl: downloadUrl || url,
             mimeType,
             extension,
             updatedAt: updatedAt && Number.isFinite(updatedAt.getTime()) ? updatedAt : null,
