@@ -69,13 +69,20 @@ function onEdit(e) {
       }
     } else if (isCobrarSheet) {
       if (idxTipo > 0) {
-        tipoReserva = (datos[idxTipo - 1] || 'COBRAR').toString().toUpperCase();
+        tipoReserva = (datos[idxTipo - 1] || 'COMPLEMENTARIA').toString().toUpperCase();
       } else {
-        tipoReserva = 'COBRAR';
+        tipoReserva = 'COMPLEMENTARIA';
       }
     } else if (name === SHEET_LIBRAR) {
       tipoReserva = 'LIBRAR';
     }
+    if (tipoReserva === 'COBRAR') {
+      tipoReserva = 'COMPLEMENTARIA';
+    }
+    const esComplementaria = tipoReserva === 'COMPLEMENTARIA';
+    const tipoReservaDisplay = (typeof normalizeTipoReserva === 'function')
+      ? normalizeTipoReserva(tipoReserva)
+      : (esComplementaria ? 'Complementaria' : String(tipoReserva || ''));
 
     // Validar email
     if (!correo || correo.toString().indexOf('@') < 0) {
@@ -109,7 +116,7 @@ function onEdit(e) {
             </p>
           </div>
         `;
-        const tipoHoja = (tipoReserva === 'LIBRAR') ? ' (Librar)' : (tipoReserva === 'COBRAR') ? ' (Cobrar)' : '';
+        const tipoHoja = (tipoReserva === 'LIBRAR') ? ' (Librar)' : esComplementaria ? ' (Complementaria)' : '';
         const asunto = `Solicitud cancelada – Bolsa de horas${tipoHoja}`;
 
         MailApp.sendEmail({
@@ -147,7 +154,7 @@ function onEdit(e) {
         <div style="font-family:Segoe UI,Arial,sans-serif; font-size:1.13em;">
           <p>¡Hola!</p>
           <p>
-            Tu solicitud ha sido registrada correctamente (<b>${tipoReserva}</b>):
+            Tu solicitud ha sido registrada correctamente (<b>${tipoReservaDisplay}</b>):
           </p>
           <ul style="line-height:1.7;">
             <li><b>Campaña:</b> ${campaña}</li>
@@ -160,7 +167,7 @@ function onEdit(e) {
           </p>
         </div>
       `;
-      const tipoHoja = (tipoReserva === 'LIBRAR') ? ' (Librar)' : (tipoReserva === 'COBRAR') ? ' (Cobrar)' : '';
+      const tipoHoja = (tipoReserva === 'LIBRAR') ? ' (Librar)' : esComplementaria ? ' (Complementaria)' : '';
       const asunto = `Solicitud recibida – Bolsa de horas${tipoHoja}`;
 
       MailApp.sendEmail({

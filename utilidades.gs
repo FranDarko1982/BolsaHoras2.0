@@ -11,6 +11,16 @@ function normalizeCampaniaValue(value) {
   return normalizeString(value);
 }
 
+function normalizeTipoReserva(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const upper = raw.toUpperCase();
+  if (upper === 'COBRAR' || upper === 'COMPLEMENTARIA') return 'Complementaria';
+  if (upper === 'TRABAJAR') return 'Trabajar';
+  if (upper === 'LIBRAR') return 'Librar';
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+}
+
 function parseCampaniaList(value) {
   if (value == null) return [];
   return String(value)

@@ -47,7 +47,7 @@ function getInicioDashboardData() {
 
   [
     { sheet: sheetResTrabajar, tipo: 'Trabajar' },
-    { sheet: sheetResCobrar, tipo: 'Cobrar' },
+    { sheet: sheetResCobrar, tipo: 'Complementaria' },
     { sheet: sheetResLibrar, tipo: 'Librar' }
   ].forEach(({ sheet, tipo }) => {
     if (!sheet) return;
@@ -166,6 +166,9 @@ function _mapReservaDashboard(row, headerMap, defaultTipo) {
   const correo = String(getValue(['Correo', 'Email', 'Mail']) || '').trim().toLowerCase();
   const tipo = (() => {
     const raw = String(getValue(['Tipo', 'Tipo petición', 'Tipo Peticion', 'Tipo solicitud']) || defaultTipo || '').trim();
+    if (typeof normalizeTipoReserva === 'function') {
+      return raw ? normalizeTipoReserva(raw) : normalizeTipoReserva(defaultTipo || '');
+    }
     if (!raw) return defaultTipo || '';
     return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
   })();

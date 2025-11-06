@@ -407,8 +407,11 @@ function tramitarSolicitudCobrar(options) {
     const franja = franjaIndex >= 0 ? String(rowValues[franjaIndex] || '').trim() : '';
     const horas = horasIndex >= 0 ? rowValues[horasIndex] : '';
     const tipo = tipoIndex >= 0 ? String(rowValues[tipoIndex] || '').trim() : '';
+    const tipoAsunto = (typeof normalizeTipoReserva === 'function')
+      ? normalizeTipoReserva(tipo || 'Complementaria')
+      : (tipo || 'Complementaria');
 
-    const asunto = `Solicitud ${estadoFinal.toLowerCase()} – Bolsa de horas (${tipo || 'Cobrar'})`;
+    const asunto = `Solicitud ${estadoFinal.toLowerCase()} – Bolsa de horas (${tipoAsunto})`;
     const body = `
       <div style="font-family: Calibri, Arial, sans-serif; max-width:650px; margin:0 auto; background:#fff;">
         <div style="width:100%; text-align:center; margin:24px 0 32px;">
@@ -459,7 +462,7 @@ function getMisReservas() {
   ensureAuthorizedContext(context);
 
   const reservasTrabajar = _getMisReservasDeHoja(sheetResTrabajar, context, 'Trabajar');
-  const reservasCobrar   = _getMisReservasDeHoja(sheetResCobrar,   context, 'Cobrar');
+  const reservasCobrar   = _getMisReservasDeHoja(sheetResCobrar,   context, 'Complementaria');
   const reservasLibrar   = _getMisReservasDeHoja(sheetResLibrar,   context, 'Librar');
   return [...reservasTrabajar, ...reservasCobrar, ...reservasLibrar].sort((a, b) => {
     const fA = parseDateDDMMYYYY(a.fecha);
@@ -485,7 +488,7 @@ function getSolicitudesAcumuladas() {
       }
     }
     const solicitudesTrabajar = _getSolicitudesDeHoja(sheetResTrabajar, 'Trabajar', tz);
-    const solicitudesCobrar = _getSolicitudesDeHoja(sheetResCobrar, 'Cobrar', tz);
+    const solicitudesCobrar = _getSolicitudesDeHoja(sheetResCobrar, 'Complementaria', tz);
     const solicitudesLibrar = _getSolicitudesDeHoja(sheetResLibrar, 'Librar', tz);
     return [...solicitudesTrabajar, ...solicitudesCobrar, ...solicitudesLibrar];
   })();
@@ -544,7 +547,10 @@ function _getMisReservasDeHoja(hoja, context, tipoReserva) {
         : String(fechaRaw || '');
 
     const tipoSheet = C_TIPO >= 0 ? String(r[C_TIPO] || '').trim() : '';
-    const tipoFinal = tipoSheet || tipoReserva || '';
+    const tipoRaw = tipoSheet || tipoReserva || '';
+    const tipoFinal = (typeof normalizeTipoReserva === 'function')
+      ? normalizeTipoReserva(tipoRaw)
+      : tipoRaw;
 
     reservas.push({
       id: r[C_IDRES] || '',
@@ -611,6 +617,9 @@ function _getSolicitudesDeHoja(sheet, defaultTipo, tz) {
     const tipoRaw = colTipo >= 0 ? row[colTipo] : defaultTipo;
     const tipoFormatted = (() => {
       const valor = String(tipoRaw || defaultTipo || '').trim();
+      if (typeof normalizeTipoReserva === 'function') {
+        return valor ? normalizeTipoReserva(valor) : normalizeTipoReserva(defaultTipo || '');
+      }
       if (!valor) return defaultTipo || '';
       return valor.charAt(0).toUpperCase() + valor.slice(1).toLowerCase();
     })();

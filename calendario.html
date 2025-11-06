@@ -304,7 +304,7 @@
               }
 
               // Determinar tipo según el modal (checkbox)
-              let tipo = cobrar ? 'Cobrar' : 'Trabajar';
+              let tipo = cobrar ? 'Complementaria' : 'Trabajar';
 
               // Llamada al backend según tipo
               showLoader(true);
@@ -317,7 +317,7 @@
                 alert(err.message);
               });
 
-              if (tipo === 'Cobrar') {
+              if (tipo === 'Complementaria') {
                 handler.reservarVariasHorasCobrar(campSel, s.getTime(), horas);
               } else {
                 handler.reservarVariasHoras(campSel, s.getTime(), horas);
@@ -617,7 +617,7 @@
               <div style="margin-top:8px;">
                 <label style="font-weight:600;">
                   <input type="checkbox" id="input-cobrar" style="margin-right:8px;">
-                  Registrar estas horas como <span style="color:#bc348b;">Cobrar</span>
+                  Registrar estas horas como <span style="color:#bc348b;">Complementaria</span>
                 </label>
               </div>`;
           }

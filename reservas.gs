@@ -178,7 +178,7 @@ function reservarVariasHorasCobrar(campania, startISO, horas) {
     throw new Error('Parámetro startISO inválido');
   }
   const resolvedCampania = resolveCampaniaForContext(campania, context);
-  return _reservarVariasHoras('Cobrar', sheetResCobrar, resolvedCampania, startDate, horas, context);
+  return _reservarVariasHoras('Complementaria', sheetResCobrar, resolvedCampania, startDate, horas, context);
 }
 
 function reservarHoraLibrar(campania, startISO) {
@@ -222,7 +222,10 @@ function _reservarHora(tipo, sheetResObj, campania, startISO, context) {
   );
   const email = ctx.email || Session.getActiveUser().getEmail() || '';
   const fechaSoloTexto = Utilities.formatDate(ini, tz, 'dd/MM/yyyy');
-  const tipoKey = (tipo === 'Cobrar') ? 'Trabajar' : tipo;
+  const tipoUpper = String(tipo || '').toUpperCase();
+  const esComplementaria = tipoUpper === 'COMPLEMENTARIA' || tipoUpper === 'COBRAR';
+  const tipoFinal = esComplementaria ? 'Complementaria' : tipo;
+  const tipoKey = esComplementaria ? 'Trabajar' : tipo;
   const keyReserva = resolvedCampania + fechaSerial + franja + email + tipoKey;
   const reservaId = generateReservaId();
 
@@ -237,13 +240,13 @@ function _reservarHora(tipo, sheetResObj, campania, startISO, context) {
     franja,
     keyReserva,
     email,
-    tipo
+    tipoFinal
   ]]);
   sh.getRange(targetRow, 11).setValue(reservaId);
 
-  sendConfirmationEmail(tipo, resolvedCampania, ini, franja.split('-')[0], franja.split('-')[1], 1, email, reservaId);
+  sendConfirmationEmail(tipoFinal, resolvedCampania, ini, franja.split('-')[0], franja.split('-')[1], 1, email, reservaId);
 
-  if (tipo === 'Cobrar') {
+  if (esComplementaria) {
     return [
       'Tu solicitud se ha enviado correctamente.',
       `ID de la solicitud: ${reservaId}`,
@@ -251,13 +254,16 @@ function _reservarHora(tipo, sheetResObj, campania, startISO, context) {
     ].join('\n');
   }
 
-  return `Solicitud registrada para ${campania} ${franja} (${fechaSoloTexto}) [${tipo}]. ID de reserva: ${reservaId}`;
+  return `Solicitud registrada para ${campania} ${franja} (${fechaSoloTexto}) [${tipoFinal}]. ID de reserva: ${reservaId}`;
 }
 
 function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas, context) {
   const ctx = context || getUserContext();
   ensureAuthorizedContext(ctx);
   const resolvedCampania = resolveCampaniaForContext(campania, ctx);
+  const tipoUpper = String(tipo || '').toUpperCase();
+  const esComplementaria = tipoUpper === 'COMPLEMENTARIA' || tipoUpper === 'COBRAR';
+  const tipoFinal = esComplementaria ? 'Complementaria' : tipo;
 
   const tz    = getAppTimeZone();
   const ini   = new Date(startDate);
@@ -271,8 +277,8 @@ function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas, con
 
   let sheetHorasObj = (tipo === 'Librar') ? sheetHorasLibrar : sheetHoras;
 
-  if (tipo === 'Cobrar' && !puedeCobrarCampania(resolvedCampania)) {
-    throw new Error(`La campaña "${resolvedCampania}" no tiene habilitada la opción de COBRAR horas.`);
+  if (esComplementaria && !puedeCobrarCampania(resolvedCampania)) {
+    throw new Error(`La campaña "${resolvedCampania}" no tiene habilitada la opción de horas COMPLEMENTARIAS.`);
   }
 
   if (!comprobarDisponibilidadContinua(sheetHorasObj, resolvedCampania, ini, horas)) {
@@ -291,7 +297,7 @@ function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas, con
     const strFranja   = formatFranja(inicio, tz);
     const fechaSolo   = Utilities.formatDate(inicio, tz, 'dd/MM/yyyy');
     const fechaSerial = toSerialDate(inicio);
-    const tipoKey     = (tipo === 'Cobrar') ? 'Trabajar' : tipo;
+    const tipoKey     = esComplementaria ? 'Trabajar' : tipo;
     const keyReserva  = `${resolvedCampania}${fechaSerial}${strFranja}${email}${tipoKey}`;
 
     rows.push([
@@ -301,7 +307,7 @@ function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas, con
       strFranja,
       keyReserva,
       email,
-      tipo
+      tipoFinal
     ]);
 
     if (h === 0)         primerFranja = strFranja.split('-')[0];
@@ -313,9 +319,9 @@ function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas, con
   const reservaIdValues = rows.map(() => [reservaId]);
   sh.getRange(firstRow, 11, reservaIdValues.length, 1).setValues(reservaIdValues);
 
-  sendConfirmationEmail(tipo, resolvedCampania, ini, primerFranja, ultimaFranja, horas, email, reservaId);
+  sendConfirmationEmail(tipoFinal, resolvedCampania, ini, primerFranja, ultimaFranja, horas, email, reservaId);
 
-  if (tipo === 'Cobrar') {
+  if (esComplementaria) {
     return [
       'Tu solicitud se ha enviado correctamente.',
       `ID de la solicitud: ${reservaId}`,
@@ -323,7 +329,7 @@ function _reservarVariasHoras(tipo, sheetResObj, campania, startDate, horas, con
     ].join('\n');
   }
 
-  return `Solicitud registrada para ${resolvedCampania} ${fechaTexto} de ${primerFranja} a ${ultimaFranja} (${horas}h) [${tipo}]. ID de reserva: ${reservaId}. Se ha enviado un email de confirmación.`;
+  return `Solicitud registrada para ${resolvedCampania} ${fechaTexto} de ${primerFranja} a ${ultimaFranja} (${horas}h) [${tipoFinal}]. ID de reserva: ${reservaId}. Se ha enviado un email de confirmación.`;
 }
 
 function ensureReservaIdColumn(sheet) {
@@ -403,13 +409,15 @@ function sendConfirmationEmail(tipo, campania, ini, primer, ultima, horas, email
   if (!email || email.indexOf('@') < 0) return;
 
   const tz         = getAppTimeZone();
-  const asunto     = `Solicitud registrada – Bolsa de horas (${tipo})`;
+  const tipoUpper  = String(tipo || '').toUpperCase();
+  const esComplementaria = tipoUpper === 'COMPLEMENTARIA' || tipoUpper === 'COBRAR';
+  const tipoDisplay = esComplementaria ? 'Complementaria' : (tipo || '');
+  const asunto     = `Solicitud registrada – Bolsa de horas (${tipoDisplay})`;
   const fechaLarga = `Madrid, a ${Utilities.formatDate(ini, tz, 'd')} de ${getNombreMes(ini.getMonth())} de ${ini.getFullYear()}`;
   const horario    = `${primer} - ${ultima}`;
   const idHtml     = reservaId ? `<li><b>ID de reserva:</b> ${reservaId}</li>` : '';
-  const esCobrar   = tipo === 'Cobrar';
 
-  const introduccionHtml = esCobrar
+  const introduccionHtml = esComplementaria
     ? `
       <div style="margin-bottom:16px;">
         Desde <span style="color:#C9006C; font-weight:bold;">Intelcia Spanish Region</span> te informamos que tu solicitud se ha registrado correctamente.
@@ -428,7 +436,7 @@ function sendConfirmationEmail(tipo, campania, ini, primer, ultima, horas, email
         Desde <span style="color:#C9006C; font-weight:bold;">Intelcia Spanish Region</span> te informamos que tu solicitud ha sido aceptada. Te recordamos la petición que has realizado:
       </div>`;
 
-  const notaFinalHtml = esCobrar
+  const notaFinalHtml = esComplementaria
     ? `
       <div style="font-size:15px; margin:14px 0 16px; color:#222;">
         Puedes cancelar esta solicitud hasta un día antes de la fecha que solicitaste trabajar o librar. Te recordamos que debes esperar la confirmación por parte de tu campaña antes de que la solicitud sea efectiva.

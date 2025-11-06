@@ -1669,7 +1669,11 @@
               hasAction = true;
             }
 
-            if (tipoNormalized === 'cobrar') {
+            const isComplementaria =
+              tipoNormalized === 'complementaria' ||
+              tipoNormalized === 'cobrar';
+
+            if (isComplementaria) {
               const tramitarButton = createActionButton('Tramitar');
               const hasIdentifier = Boolean(identifierValue);
               const alreadyTramitada =
